@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zulo's File Upload Service v2</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>zulo's file upload service v2</h1>
+            <p class="pr-text">upload files by submitting a pull request</p>
+        </header>
+
+        <main>
+            <div class="stats-bar">
+                    <div class="stat">
+                    <span class="stat-number" id="file-count">0</span>
+                    <span class="stat-label">files</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">99.9%</span>
+                    <span class="stat-label">uptime</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">v2</span>
+                    <span class="stat-label">version</span>
+                </div>
+            </div>
+
+            <section class="file-section">
+                <div class="section-header">
+                    <h2>available files</h2>
+                    <div class="search-box">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 14L11.1 11.1" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <input type="text" placeholder="search files..." id="search-input">
+                    </div>
+                </div>
+                <ul id="file-list"></ul>
+            </section>
+        </main>
+
+    </div>
+    <script src="script.js" defer></script>
+</body>
+</html>
