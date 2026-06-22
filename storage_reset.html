@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>storage_reset</title>
+</head>
+
+<body>
+<h1>Clearing...</h1>
+
+<script>
+(async () => {
+  // 1. localStorage wipe
+  localStorage.clear();
+
+  // 2. sessionStorage wipe (optional but safe)
+  sessionStorage.clear();
+
+  // 3. IndexedDB: delete only alumos_fs (targeted)
+  try {
+    indexedDB.deleteDatabase("alumos_fs");
+  } catch (e) {}
+
+  // 4. optional: also wipe any alumos-prefixed DBs if browser supports listing
+  if (indexedDB.databases) {
+    const dbs = await indexedDB.databases();
+    for (const db of dbs) {
+      if (db.name && db.name.startsWith("alumos")) {
+        indexedDB.deleteDatabase(db.name);
+      }
+    }
+  }
+
+  // 5. optional tiny delay so "Clearing..." is visible briefly
+  setTimeout(() => {
+    location.href = "/alumos/";
+  }, 500);
+})();
+</script>
+
+</body>
+</html>
