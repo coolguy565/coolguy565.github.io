@@ -516,30 +516,23 @@ body.mobile-mode .shelf{ display:none !important; }
 <!-- UEFI -->
 <div id="screen-uefi" class="screen active">
   <div class="uefi-google">Google</div>
-  <!-- Mobile / touch button to enter boot selection (visible on small screens or tap) -->
-  <button
-    id="uefi-boot-btn"
-    onclick="uefiEnterBootMenu()"
-    style="
-      position:absolute;
-      bottom:24px;
-      right:24px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.15);
-      border-radius:8px;
-      color:rgba(255,255,255,.45);
-      font-size:11px;
-      letter-spacing:1px;
-      padding:8px 14px;
-      cursor:pointer;
-      font-family:Roboto Mono,monospace;
-      opacity:0;
-      animation:gfadein .5s 2s ease forwards;
-      transition:background .15s,color .15s,border-color .15s;
-    "
+  <!-- USB Boot button - bottom left -->
+  <button onclick="startUSBBoot()"
+    style="position:absolute;bottom:24px;left:24px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:rgba(255,255,255,.45);font-size:11px;letter-spacing:1px;padding:8px 14px;cursor:pointer;font-family:Roboto Mono,monospace;opacity:0;animation:gfadein .5s 2s ease forwards;transition:background .15s,color .15s"
+    onmouseenter="this.style.background='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.8)'"
+    onmouseleave="this.style.background='rgba(255,255,255,.06)';this.style.color='rgba(255,255,255,.45)'"
+  >💾 USB BOOT</button>
+  <!-- Boot menu button - bottom right -->
+  <button id="uefi-boot-btn" onclick="uefiEnterBootMenu()"
+    style="position:absolute;bottom:24px;right:24px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:rgba(255,255,255,.45);font-size:11px;letter-spacing:1px;padding:8px 14px;cursor:pointer;font-family:Roboto Mono,monospace;opacity:0;animation:gfadein .5s 2s ease forwards;transition:background .15s,color .15s"
     onmouseenter="this.style.background='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.8)';this.style.borderColor='rgba(255,255,255,.35)'"
     onmouseleave="this.style.background='rgba(255,255,255,.06)';this.style.color='rgba(255,255,255,.45)';this.style.borderColor='rgba(255,255,255,.15)'"
   >BOOT MENU</button>
+</div>
+
+<!-- ALUMINOS INSTALLER -->
+<div id="screen-installer" class="screen" style="background:#07091a;flex-direction:column;align-items:center;justify-content:center;font-family:var(--gs)">
+  <div id="inst-body" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center"></div>
 </div>
 
 <!-- BOOT SELECTION -->
@@ -839,6 +832,21 @@ body.mobile-mode .shelf{ display:none !important; }
 
       <!-- 6: Done -->
       <div class="sw-slide" id="swsl-6">
+        <div class="sw-stepn">Step 07 of 07</div>
+        <div class="sw-h1">Secure your device</div>
+        <div class="sw-h2">Add a PIN, password, or skip to use no lock.</div>
+        <div class="sw-opts" style="grid-template-columns:1fr 1fr 1fr;max-width:360px;margin-bottom:16px">
+          <div class="sw-opt sel" id="lock-opt-none" onclick="swLockPick('none')"><div class="soi">🔓</div>None</div>
+          <div class="sw-opt" id="lock-opt-pin" onclick="swLockPick('pin')"><div class="soi">🔢</div>PIN</div>
+          <div class="sw-opt" id="lock-opt-password" onclick="swLockPick('password')"><div class="soi">🔑</div>Password</div>
+        </div>
+        <div id="sw-lock-fields" style="max-width:340px;width:100%"></div>
+        <div class="sw-btn-row" style="margin-top:16px">
+          <button class="sw-sbtn" onclick="swNext(5)">Skip</button>
+          <button class="sw-pbtn" onclick="swLockSave()">Continue</button>
+        </div>
+      </div>
+      <div class="sw-slide" id="swsl-7">
         <div class="sw-headline" style="font-size:32px">You're all set,<br><span id="sw-done-name" style="color:#8ab4f8">friend</span>.</div>
         <div class="sw-subhead">AluminumOS is ready on your GoogleBook.</div>
         <div class="sw-checks">
@@ -967,12 +975,16 @@ body.mobile-mode .shelf{ display:none !important; }
     <div class="sb-l" id="sb-time">12:00</div>
     <div class="sb-r">
       <span>📶</span><span>🛜</span>
-      <div style="display:flex;align-items:center;gap:3px">
-        <div class="sb-bat-shell"><div class="sb-bat-fill"></div></div>
-        <span>75%</span>
-      </div>
+      <span id="sb-bat-icon" style="font-size:13px">🔋</span>
+      <span id="sb-bat-pct" style="font-size:11px">75%</span>
       <span style="cursor:pointer;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.08)" onclick="toggleNotif()">🔔</span>
     </div>
+  </div>
+  <!-- App drawer overlay -->
+  <div id="app-drawer" style="display:none;position:absolute;inset:0;z-index:190;background:rgba(5,7,18,.92);backdrop-filter:blur(20px);flex-direction:column;align-items:center;justify-content:flex-start;padding:48px 24px 24px;overflow-y:auto">
+    <div style="font-size:13px;color:rgba(255,255,255,.5);letter-spacing:2px;margin-bottom:24px;text-transform:uppercase">All Apps</div>
+    <div id="app-drawer-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px;max-width:640px;width:100%"></div>
+    <button onclick="closeAppDrawer()" style="margin-top:32px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:24px;color:rgba(255,255,255,.6);padding:10px 28px;cursor:pointer;font-size:13px;font-family:var(--gs)">✕ Close</button>
   </div>
   <div class="home-area">
     <div class="home-header">
@@ -996,10 +1008,13 @@ body.mobile-mode .shelf{ display:none !important; }
     style="position:absolute;bottom:76px;right:14px;z-index:150;width:38px;height:38px;border-radius:50%;background:rgba(244,67,54,.12);border:1.5px solid rgba(244,67,54,.3);color:#ef5350;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;box-shadow:0 2px 12px rgba(0,0,0,.3);user-select:none"
     onmouseenter="this.style.background='rgba(244,67,54,.26)'"
     onmouseleave="powerBtnUp();this.style.background='rgba(244,67,54,.12)'"
-    onmousedown="powerBtnDown()"
-    onmouseup="powerBtnUp()"
-    ontouchstart="powerBtnDown()"
-    ontouchend="powerBtnUp()">⏻</button>
+    onmousedown="powerBtnDown()" onmouseup="powerBtnUp()"
+    ontouchstart="powerBtnDown()" ontouchend="powerBtnUp()">⏻</button>
+  <!-- Physical Actions button -->
+  <button id="phys-btn" title="Physical actions" onclick="showPhysicalActions()"
+    style="position:absolute;bottom:76px;left:14px;z-index:150;width:38px;height:38px;border-radius:50%;background:rgba(79,195,247,.1);border:1.5px solid rgba(79,195,247,.25);color:#4fc3f7;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;box-shadow:0 2px 12px rgba(0,0,0,.3)"
+    onmouseenter="this.style.background='rgba(79,195,247,.22)'"
+    onmouseleave="this.style.background='rgba(79,195,247,.1)'">🔌</button>
   <div class="window-layer" id="window-layer"></div>
   <div class="notif-panel" id="notif-panel">
     <div class="np-hdr">Notifications &amp; Quick Settings</div>
@@ -1445,13 +1460,17 @@ function startReinstall(){
   let step=0;
   (function next(){
     if(step>=reinstallSteps.length){
-      // Wait 5s then reboot
-      if(stat) stat.textContent='Rebooting in 5 seconds...';
-      setTimeout(()=>{
-        reinstallRunning=false;
-        localStorage.removeItem('alum_done');
-        doReboot('AluminumOS reinstalled — rebooting...', ()=>startBootAnim());
-      }, 5000);
+      if(stat) stat.textContent='Rebuilding filesystem...';
+      (async()=>{
+        try{ if(window._alumosSeedFS) await window._alumosSeedFS(); }
+        catch(e){ console.error('FS reseed error',e); }
+        if(stat) stat.textContent='Rebooting in 5 seconds...';
+        setTimeout(()=>{
+          reinstallRunning=false;
+          localStorage.removeItem('alum_done');
+          doReboot('AluminumOS reinstalled — rebooting...', ()=>startBootAnim());
+        }, 5000);
+      })();
       return;
     }
     if(stat) stat.textContent=reinstallSteps[step];
@@ -1624,7 +1643,350 @@ function startBootAnim(){
 }
 
 // ─────────────────────────────────────────────
-// POWER BUTTON (hold 0.7s to open menu)
+// USB BOOT → AluminumOS Installer
+// ─────────────────────────────────────────────
+let instType='full';
+function startUSBBoot(){
+  if(uefiDone) return;
+  uefiDone=true;
+  // Show android boot anim with "Please wait"
+  showScreen('boot');
+  const bsv=document.querySelector('.bsv');
+  if(bsv){
+    // Add "Please wait" text below android logo
+    let pw=document.getElementById('boot-please-wait');
+    if(!pw){
+      pw=document.createElement('div'); pw.id='boot-please-wait';
+      pw.style.cssText='position:absolute;bottom:40%;left:0;right:0;text-align:center;font-size:13px;color:rgba(255,255,255,.5);letter-spacing:2px;font-family:var(--mono);animation:gfadein .5s .5s ease both';
+      pw.textContent='Please wait';
+      document.getElementById('screen-boot').appendChild(pw);
+    }
+  }
+  setTimeout(()=>{
+    const pw=document.getElementById('boot-please-wait'); if(pw) pw.remove();
+    showInstaller();
+  }, 10000);
+}
+
+function showInstaller(){
+  showScreen('installer');
+  const body=document.getElementById('inst-body');
+  if(!body) return;
+  instType='full';
+  body.innerHTML=`
+    <div style="max-width:560px;width:90%;text-align:center">
+      <div style="font-size:32px;font-weight:300;color:#fff;margin-bottom:6px;font-family:'Google Sans Display',sans-serif">AluminumOS Installer</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:36px;font-family:var(--mono)">aluminum_googlebook · A17QPR1.241201.001</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:16px;text-align:left">Select installation type:</div>
+      <div style="display:flex;gap:12px;margin-bottom:28px">
+        <div id="inst-full" onclick="instPick('full')" style="flex:1;border:2px solid #4285f4;border-radius:16px;padding:20px 16px;cursor:pointer;background:rgba(66,133,244,.08);transition:.15s">
+          <div style="font-size:28px;margin-bottom:10px">📦</div>
+          <div style="font-size:15px;font-weight:600;color:#e8eaed">Full Installation</div>
+          <div style="font-size:12px;color:#5f6368;margin-top:6px;line-height:1.6">Complete AluminumOS with all apps, themes, desktop looks, wallpapers, and full /drv/1 data partition.</div>
+          <div style="margin-top:10px;font-size:11px;color:#4caf50">✓ Recommended</div>
+        </div>
+        <div id="inst-minimal" onclick="instPick('minimal')" style="flex:1;border:2px solid #333;border-radius:16px;padding:20px 16px;cursor:pointer;background:transparent;transition:.15s">
+          <div style="font-size:28px;margin-bottom:10px">⚡</div>
+          <div style="font-size:15px;font-weight:600;color:#e8eaed">Minimal Installation</div>
+          <div style="font-size:12px;color:#5f6368;margin-top:6px;line-height:1.6">Safe mode only. No dock, no wallpaper, no themes, no notifications. Essential settings and apps only. No /drv/1.</div>
+          <div style="margin-top:10px;font-size:11px;color:#ffb300">⚡ Lightweight</div>
+        </div>
+      </div>
+      <button onclick="instNext()" style="padding:13px 40px;background:#4285f4;border:none;border-radius:24px;color:#fff;font-size:15px;font-weight:500;cursor:pointer;font-family:var(--gs)">Next →</button>
+    </div>`;
+}
+
+function instPick(type){
+  instType=type;
+  const full=document.getElementById('inst-full');
+  const min=document.getElementById('inst-minimal');
+  if(full){ full.style.borderColor=type==='full'?'#4285f4':'#333'; full.style.background=type==='full'?'rgba(66,133,244,.08)':'transparent'; }
+  if(min){ min.style.borderColor=type==='minimal'?'#4285f4':'#333'; min.style.background=type==='minimal'?'rgba(66,133,244,.08)':'transparent'; }
+}
+
+function instNext(){
+  const body=document.getElementById('inst-body'); if(!body) return;
+  body.innerHTML=`
+    <div style="max-width:480px;width:90%;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+      <div style="font-size:20px;font-weight:600;color:#ffb300;margin-bottom:12px">Erase drive and install?</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.8;margin-bottom:28px">
+        <strong style="color:#fff">${instType==='full'?'Full':'Minimal'} Installation</strong> will be installed.<br>
+        <span style="color:#f44336">All data on this device will be permanently erased.</span><br>
+        This cannot be undone.
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button onclick="showInstaller()" style="padding:11px 28px;background:rgba(255,255,255,.08);border:1px solid #333;border-radius:20px;color:#e8eaed;font-size:14px;cursor:pointer;font-family:var(--gs)">No, go back</button>
+        <button onclick="instStart()" style="padding:11px 28px;background:#f44336;border:none;border-radius:20px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;font-family:var(--gs)">Yes, erase &amp; install</button>
+      </div>
+    </div>`;
+}
+
+function instStart(){
+  const body=document.getElementById('inst-body'); if(!body) return;
+  const isMinimal=instType==='minimal';
+  let phase=0;
+  const phases=[
+    {label:'Downloading system image...',color:'#4285f4',ms:90000},
+    {label:'Copying files to /drv/0...',color:'#34a853',ms:120000},
+  ];
+  localStorage.clear();
+  if(isMinimal) localStorage.setItem('alum_minimal','1');
+
+  function runPhase(){
+    if(phase>=phases.length){
+      // Done — countdown + reboot now button
+      body.innerHTML=`
+        <div style="max-width:400px;width:90%;text-align:center">
+          <div style="font-size:56px;margin-bottom:16px">✅</div>
+          <div style="font-size:18px;font-weight:500;color:#e8eaed;margin-bottom:8px">Installation complete!</div>
+          <div style="font-size:13px;color:#5f6368;margin-bottom:24px">AluminumOS will reboot automatically.</div>
+          <div style="width:100%;height:4px;background:#1a1a1a;border-radius:2px;overflow:hidden;margin-bottom:12px">
+            <div id="inst-countdown-fill" style="height:100%;background:#f44336;width:0%;transition:width 10s linear"></div>
+          </div>
+          <div id="inst-countdown-label" style="font-size:12px;color:#5f6368;margin-bottom:20px">Rebooting in 10 seconds...</div>
+          <button onclick="instFinalReboot()" style="padding:10px 24px;background:#4285f4;border:none;border-radius:20px;color:#fff;font-size:13px;cursor:pointer;font-family:var(--gs)">Reboot now</button>
+        </div>`;
+      setTimeout(()=>{
+        const fill=document.getElementById('inst-countdown-fill');
+        if(fill) fill.style.width='100%';
+      },100);
+      setTimeout(instFinalReboot, 10000);
+      return;
+    }
+    const p=phases[phase];
+    body.innerHTML=`
+      <div style="max-width:400px;width:90%;text-align:center">
+        <div style="font-size:14px;color:${p.color};letter-spacing:1px;margin-bottom:20px;font-family:var(--mono)">${p.label}</div>
+        <div style="width:100%;height:3px;background:#111;border-radius:2px;overflow:hidden;margin-bottom:8px">
+          <div id="inst-pbar" style="height:100%;background:${p.color};width:0%;transition:width .3s linear"></div>
+        </div>
+        <div id="inst-pct" style="font-size:11px;color:#5f6368;font-family:var(--mono)">0%</div>
+      </div>`;
+    const start=Date.now();
+    const iv=setInterval(()=>{
+      const pct=Math.min((Date.now()-start)/p.ms*100,100);
+      const pb=document.getElementById('inst-pbar'); if(pb) pb.style.width=pct.toFixed(1)+'%';
+      const pt=document.getElementById('inst-pct'); if(pt) pt.textContent=pct.toFixed(0)+'%';
+      if(pct>=100){
+        clearInterval(iv);
+        // Reseed FS on the copy phase
+        if(phase===1){
+          (async()=>{
+            if(window._alumosSeedFS) await window._alumosSeedFS();
+            if(isMinimal){
+              // Remove /drv/1 for minimal
+              if(alumos&&alumos.FS){
+                const files=await alumos.FS.list('/drv/1/');
+                for(const f of files) await alumos.FS.remove(f.path);
+              }
+            }
+            phase++; runPhase();
+          })();
+        } else { phase++; runPhase(); }
+      }
+    }, 300);
+  }
+  runPhase();
+}
+
+function instFinalReboot(){
+  doReboot('Installation complete — rebooting...', ()=>startBootAnim());
+}
+
+// ─────────────────────────────────────────────
+// APP DRAWER
+// ─────────────────────────────────────────────
+function openAppDrawer(){
+  const drawer=document.getElementById('app-drawer');
+  const grid=document.getElementById('app-drawer-grid');
+  if(!drawer||!grid) return;
+  const built=localStorage.getItem('alum_vm_built')==='1';
+  const isRoot=localStorage.getItem('alum_root')==='1';
+  const all=[...apps.filter(a=>a.id!=='vms'||built)];
+  if(isRoot) all.push({id:'psapp-magisk',icon:'👑',label:'Root',bg:'#1a0000'});
+  grid.innerHTML='';
+  all.forEach(a=>{
+    grid.insertAdjacentHTML('beforeend',`<div class="app-icon" onclick="closeAppDrawer();openApp('${a.id}')" title="${a.label}"><div class="ai-img" style="background:${a.bg};font-size:26px">${a.icon}</div><div class="ai-label">${a.label}</div></div>`);
+  });
+  drawer.style.display='flex';
+}
+function closeAppDrawer(){ const d=document.getElementById('app-drawer'); if(d) d.style.display='none'; }
+
+// ─────────────────────────────────────────────
+// DESKTOP LOOKS
+// ─────────────────────────────────────────────
+const desktopLooks=['alumos','windows','gnome','pear'];
+function applyDesktopLook(look){
+  localStorage.setItem('alum_look',look);
+  document.body.classList.remove(...desktopLooks.map(l=>'look-'+l));
+  document.body.classList.add('look-'+look);
+  // Re-render shelf/taskbar for the look
+  renderDesktopLook(look);
+  vmShowToast('Desktop: '+{alumos:'AluminumOS',windows:'Windows',gnome:'GNOME',pear:'Pear (macOS)'}[look]);
+}
+function renderDesktopLook(look){
+  const shelf=document.getElementById('shelf');
+  const homeArea=document.querySelector('.home-area');
+  const statusbar=document.querySelector('.statusbar');
+  if(look==='windows'){
+    // Windows: taskbar at bottom with Start (G) button
+    if(shelf){ shelf.style.height='44px'; shelf.style.background='rgba(10,10,20,.95)'; shelf.style.backdropFilter='blur(20px)'; shelf.style.borderTop='1px solid rgba(255,255,255,.08)'; shelf.style.justifyContent='flex-start'; shelf.style.padding='0 8px'; shelf.style.gap='4px'; }
+    const si=document.getElementById('shelf-inner');
+    if(si){ si.style.background='none'; si.style.border='none'; si.style.padding='0'; si.style.gap='2px'; si.innerHTML=`<button onclick="openAppDrawer()" style="width:40px;height:36px;border-radius:6px;background:rgba(66,133,244,.2);border:1px solid rgba(66,133,244,.4);color:#4285f4;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">G</button><div style="width:1px;height:28px;background:rgba(255,255,255,.1);margin:0 6px"></div>`+dockIds.map(id=>{ const a=apps.find(x=>x.id===id); return a?`<div class="shelf-icon" onclick="openApp('${a.id}')" title="${a.label}" style="border-radius:4px">${a.icon}</div>`:''; }).join(''); }
+  } else if(look==='gnome'){
+    // GNOME: top bar, no bottom dock
+    if(shelf){ shelf.style.display='none'; }
+    if(statusbar){ statusbar.style.height='28px'; statusbar.style.background='#1a1a1a'; statusbar.style.backdropFilter='none'; statusbar.innerHTML=`<div style="display:flex;align-items:center;gap:14px;padding:0 12px;font-size:13px;color:#e8eaed;flex:1"><b>Activities</b><span style="cursor:pointer" onclick="openAppDrawer()">Apps ▾</span></div><div style="font-size:12px;color:#e8eaed;padding:0 12px" id="sb-time">12:00</div><div style="display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;color:#e8eaed"><span id="sb-bat-pct">75%</span><span>📶</span></div>`; }
+  } else if(look==='pear'){
+    // Pear (macOS): menu bar at top, dock at bottom center
+    if(statusbar){ statusbar.style.background='rgba(255,255,255,.1)'; statusbar.style.backdropFilter='blur(20px)'; statusbar.style.height='28px'; statusbar.innerHTML=`<div style="display:flex;align-items:center;gap:14px;padding:0 12px;font-size:13px;color:#fff;flex:1"><span style="font-size:16px">🍐</span><b style="cursor:pointer" onclick="openAppDrawer()">Finder</b><span style="cursor:pointer">File</span><span style="cursor:pointer">Edit</span><span style="cursor:pointer">View</span><span style="cursor:pointer">Go</span><span style="cursor:pointer">Window</span><span style="cursor:pointer">Help</span></div><div style="display:flex;align-items:center;gap:12px;padding:0 12px;font-size:12px;color:#fff"><span id="sb-bat-pct">75%</span><span id="sb-bat-icon">🔋</span><span>📶</span><span id="sb-time">12:00</span></div>`; }
+    if(shelf){ shelf.style.height='64px'; shelf.style.background='rgba(255,255,255,.12)'; shelf.style.backdropFilter='blur(24px)'; shelf.style.borderRadius='20px'; shelf.style.bottom='10px'; shelf.style.left='50%'; shelf.style.transform='translateX(-50%)'; shelf.style.position='absolute'; shelf.style.width='auto'; shelf.style.padding='0 14px'; shelf.style.border='1px solid rgba(255,255,255,.2)'; }
+  } else {
+    // AluminumOS default — reset
+    if(shelf){ shelf.style.display=''; shelf.style.height=''; shelf.style.background=''; shelf.style.backdropFilter=''; shelf.style.borderRadius=''; shelf.style.bottom=''; shelf.style.left=''; shelf.style.transform=''; shelf.style.position=''; shelf.style.width=''; shelf.style.padding=''; shelf.style.border=''; shelf.style.justifyContent=''; }
+    if(statusbar){ statusbar.style.cssText=''; }
+    initDesktopShelf();
+  }
+}
+function initDesktopShelf(){
+  const si=document.getElementById('shelf-inner');
+  if(si) si.innerHTML=dockIds.map(id=>{ const a=apps.find(x=>x.id===id); return a?`<div class="shelf-icon" id="si-${a.id}" title="${a.label}" onclick="openApp('${a.id}')">${a.icon}</div>`:''; }).join('<div class="shelf-sep"></div>')+`<div class="shelf-sep"></div><div class="shelf-icon" onclick="openAppDrawer()" title="All apps">⊞</div>`;
+}
+
+// ─────────────────────────────────────────────
+// PHYSICAL ACTIONS
+// ─────────────────────────────────────────────
+const physState={charging:false,usb:false,monitor:false,lidOpen:true};
+function showPhysicalActions(){
+  const ov=document.createElement('div');
+  ov.id='phys-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9998;display:flex;align-items:flex-end;justify-content:flex-start;padding:20px';
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  ov.innerHTML=`<div style="background:#111318;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:20px;width:280px;box-shadow:0 20px 60px rgba(0,0,0,.6);margin-bottom:60px">
+    <div style="font-size:14px;font-weight:600;color:#e8eaed;margin-bottom:14px;display:flex;align-items:center;gap:8px">🔌 Physical Actions</div>
+    ${[
+      ['charging','🔋','Plug in charger','Unplug charger',()=>{ physState.charging=!physState.charging; updateBatteryUI(); }],
+      ['usb','🖱','Plug in USB peripherals','Unplug USB peripherals',()=>{ physState.usb=!physState.usb; vmShowToast(physState.usb?'USB peripherals connected':'USB peripherals disconnected'); }],
+      ['monitor','🖥','Plug in secondary monitor','Unplug secondary monitor',()=>{ physState.monitor=!physState.monitor; vmShowToast(physState.monitor?'Secondary monitor detected (1920×1080)':'Secondary monitor disconnected'); }],
+      ['lidOpen','📲','Close lid','Open lid',()=>{ physState.lidOpen=!physState.lidOpen; if(!physState.lidOpen){ goToLock(); vmShowToast('Lid closed — locked'); } else vmShowToast('Lid opened'); }],
+    ].map(([key,icon,on,off,fn],i)=>`<div onclick="(${fn.toString()})();document.getElementById('phys-act-${i}').textContent=physState.${key}?'${off}':'${on}';this.querySelector('span').textContent=physState.${key}?'✓ Active':''" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;margin-bottom:4px;transition:.12s" onmouseenter="this.style.background='rgba(255,255,255,.06)'" onmouseleave="this.style.background='transparent'">
+      <span style="font-size:18px">${icon}</span>
+      <span id="phys-act-${i}" style="flex:1;font-size:13px;color:#e8eaed">${physState[key]?off:on}</span>
+      <span style="font-size:10px;color:${physState[key]?'#4caf50':'#5f6368'}">${physState[key]?'✓ Active':''}</span>
+    </div>`).join('')}
+    <div style="height:1px;background:rgba(255,255,255,.06);margin:10px 0"></div>
+    <div style="font-size:11px;color:#5f6368;margin-bottom:8px">Override battery %</div>
+    <input type="range" min="0" max="100" value="${localStorage.getItem('alum_bat_override')||75}" oninput="overrideBattery(this.value)" style="width:100%;accent-color:#4fc3f7"/>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function overrideBattery(val){
+  localStorage.setItem('alum_bat_override',val);
+  updateBatteryUI(val);
+}
+function updateBatteryUI(pct){
+  if(pct===undefined) pct=localStorage.getItem('alum_bat_override')||75;
+  pct=parseInt(pct);
+  const color=pct>20?'#4caf50':pct>10?'#ffb300':'#f44336';
+  const icon=physState.charging?'⚡':(pct>80?'🔋':pct>20?'🪫':'🔴');
+  const sb=document.getElementById('sb-bat-pct'); if(sb) sb.textContent=pct+'%';
+  const si=document.getElementById('sb-bat-icon'); if(si) si.textContent=icon;
+}
+// Try Battery API
+if(navigator.getBattery) navigator.getBattery().then(bat=>{
+  const update=()=>{ if(!localStorage.getItem('alum_bat_override')){ updateBatteryUI(Math.round(bat.level*100)); physState.charging=bat.charging; } };
+  bat.addEventListener('levelchange',update); bat.addEventListener('chargingchange',update); update();
+}).catch(()=>{});
+
+// ─────────────────────────────────────────────
+// PIN / PASSWORD
+// ─────────────────────────────────────────────
+let swLockType='none';
+function swLockPick(type){
+  swLockType=type;
+  ['none','pin','password'].forEach(t=>{
+    const el=document.getElementById('lock-opt-'+t);
+    if(el) el.classList.toggle('sel',t===type);
+  });
+  const fields=document.getElementById('sw-lock-fields');
+  if(!fields) return;
+  if(type==='none'){ fields.innerHTML=''; return; }
+  if(type==='pin'){
+    fields.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
+      <input id="sw-pin-1" type="password" inputmode="numeric" maxlength="8" class="sw-input" placeholder="Enter PIN (4–8 digits)" style="margin-bottom:0"/>
+      <input id="sw-pin-2" type="password" inputmode="numeric" maxlength="8" class="sw-input" placeholder="Confirm PIN" style="margin-bottom:0"/>
+    </div>`;
+  } else {
+    fields.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
+      <input id="sw-pwd-1" type="password" class="sw-input" placeholder="Enter password" style="margin-bottom:0"/>
+      <input id="sw-pwd-2" type="password" class="sw-input" placeholder="Confirm password" style="margin-bottom:0"/>
+    </div>`;
+  }
+}
+function swLockSave(){
+  if(swLockType==='none'){ localStorage.removeItem('alum_lock_type'); localStorage.removeItem('alum_lock_val'); swNext(6); return; }
+  if(swLockType==='pin'){
+    const a=document.getElementById('sw-pin-1')?.value.trim();
+    const b=document.getElementById('sw-pin-2')?.value.trim();
+    if(!a||a.length<4){ alert('PIN must be at least 4 digits'); return; }
+    if(a!==b){ alert('PINs do not match'); return; }
+    localStorage.setItem('alum_lock_type','pin');
+    localStorage.setItem('alum_lock_val',a);
+  } else {
+    const a=document.getElementById('sw-pwd-1')?.value;
+    const b=document.getElementById('sw-pwd-2')?.value;
+    if(!a||a.length<4){ alert('Password must be at least 4 characters'); return; }
+    if(a!==b){ alert('Passwords do not match'); return; }
+    localStorage.setItem('alum_lock_type','password');
+    localStorage.setItem('alum_lock_val',a);
+  }
+  swNext(6);
+}
+
+// Override showPassField to enforce PIN/password
+function showPassField(){
+  if(lockPassShown) return; lockPassShown=true;
+  const lockType=localStorage.getItem('alum_lock_type')||'none';
+  const h=document.getElementById('lk-hint');
+  const pa=document.getElementById('lk-pass-area');
+  if(lockType==='none'){ unlockScreen(); return; }
+  if(h) h.textContent=lockType==='pin'?'Enter PIN':'Enter password';
+  if(pa) pa.innerHTML='<div class="lk-pass-row"><input class="lk-pass-input" id="lk-pass" type="password" '+(lockType==='pin'?'inputmode="numeric" maxlength="8"':'')+' placeholder="'+(lockType==='pin'?'PIN':'Password')+'" onkeydown="if(event.key===\'Enter\')checkLockCredential()"/><button class="lk-pass-btn" onclick="checkLockCredential()">→</button></div>';
+  setTimeout(()=>document.getElementById('lk-pass')?.focus(),50);
+}
+function checkLockCredential(){
+  const val=document.getElementById('lk-pass')?.value||'';
+  const expected=localStorage.getItem('alum_lock_val')||'';
+  if(val===expected){ unlockScreen(); return; }
+  const pa=document.getElementById('lk-pass-area');
+  if(pa){ pa.insertAdjacentHTML('beforeend','<div style="color:#f44336;font-size:11px;margin-top:4px;text-align:center">Incorrect — try again</div>'); }
+  const inp=document.getElementById('lk-pass'); if(inp){ inp.value=''; inp.focus(); }
+}
+
+// Settings page for lock screen security
+function buildSecurityPage(){
+  const lockType=localStorage.getItem('alum_lock_type')||'none';
+  return `<div class="sett-sec">Screen Lock</div>
+  <div class="sett-row" onclick="settChangeLock('none')" style="cursor:pointer"><div class="sett-ri" style="background:#1a1a1a">🔓</div><div class="sett-info"><div class="sett-t">None</div><div class="sett-s">No lock screen security</div></div>${lockType==='none'?'<span style="color:#4285f4;font-size:12px">Active</span>':''}</div>
+  <div class="sett-row" onclick="settChangeLock('pin')" style="cursor:pointer"><div class="sett-ri" style="background:#1a1a1a">🔢</div><div class="sett-info"><div class="sett-t">PIN</div><div class="sett-s">4–8 digit number</div></div>${lockType==='pin'?'<span style="color:#4285f4;font-size:12px">Active</span>':''}</div>
+  <div class="sett-row" onclick="settChangeLock('password')" style="cursor:pointer"><div class="sett-ri" style="background:#1a1a1a">🔑</div><div class="sett-info"><div class="sett-t">Password</div><div class="sett-s">Letters, numbers, and symbols</div></div>${lockType==='password'?'<span style="color:#4285f4;font-size:12px">Active</span>':''}</div>
+  <div class="sett-sec" style="margin-top:12px">Desktop Look</div>
+  ${[['alumos','🤖','AluminumOS'],['windows','🪟','Windows'],['gnome','🐧','GNOME'],['pear','🍐','Pear (macOS)']].map(([id,ic,lb])=>`<div class="sett-row" onclick="applyDesktopLook('${id}')" style="cursor:pointer"><div class="sett-ri" style="background:#1a1a1a">${ic}</div><div class="sett-info"><div class="sett-t">${lb}</div><div class="sett-s">Desktop layout and style</div></div>${(localStorage.getItem('alum_look')||'alumos')===id?'<span style="color:#4285f4;font-size:12px">Active</span>':''}</div>`).join('')}`;
+}
+function settChangeLock(type){
+  const val=type==='none'?null:prompt(type==='pin'?'Enter new PIN (4–8 digits):':'Enter new password (min 4 chars):');
+  if(type!=='none'&&(!val||val.length<4)){ alert('Too short'); return; }
+  const confirm=type==='none'?null:prompt(type==='pin'?'Confirm PIN:':'Confirm password:');
+  if(type!=='none'&&val!==confirm){ alert('Does not match'); return; }
+  if(type==='none'){ localStorage.removeItem('alum_lock_type'); localStorage.removeItem('alum_lock_val'); }
+  else { localStorage.setItem('alum_lock_type',type); localStorage.setItem('alum_lock_val',val); }
+  vmShowToast(type==='none'?'Lock removed':'Lock set');
+  const m=document.getElementById('sett-main'); if(m) m.innerHTML=buildSecurityPage();
+}
+
+// ─────────────────────────────────────────────
+// USB BOOT helper
 // ─────────────────────────────────────────────
 let powerHoldTimer=null;
 function powerBtnDown(){
@@ -1762,7 +2124,7 @@ function showOOBEIntro(){
     }, 400);
   }, 10400);
 }
-const SW_TOTAL=7;
+const SW_TOTAL=8;
 
 function swNext(fromSlide){
   if(fromSlide===3){ const v=document.getElementById('sw-name')?.value.trim(); if(v) userName=v; }
@@ -4017,316 +4379,43 @@ const alumos=(()=>{
 
 // ── Seed the system filesystem with core kernel files ──────
 (async function alumosSeedFS(){
-  const FS=alumos.FS;
+  window._alumosSeedFS=function(){return alumosSeedFS();};
+  var FS=alumos.FS;
+  var kernelSrc="(function(global){\n'use strict';\nvar K={\n  v:'6.6.42-alumos-kernel',arch:'aarch64',build:'A17QPR1.241201.001',_booted:false,\n  _procs:{},_nextPid:2,_threads:{},_nextTid:1,_mounts:{},_handlers:{},_mqueues:{},_dmesg:[],\n  SIGTERM:15,SIGKILL:9,SIGINT:2,SIGHUP:1,SIGCHLD:17,SIGUSR1:10,SIGUSR2:12,\n  log:function(m,level){\n    var ts=(performance.now()/1000).toFixed(6);\n    var entry='['+ts+'] '+(level==='err'?'[ERR] ':level==='warn'?'[WARN] ':'[INFO] ')+m;\n    K._dmesg.push(entry); if(K._dmesg.length>512) K._dmesg.shift();\n    alumos.sys.log(m,level||'info');\n  },\n  dmesg:function(n){return K._dmesg.slice(n?-n:0).join('\\n');},\n  panic:function(m,o){alumos.sys.panic(m,o);},\n  mount:function(dev,mp,fstype,opts){\n    K._mounts[mp]={dev:dev,fstype:fstype,opts:opts||{},ro:dev.indexOf('/drv/0')===0,mountTime:Date.now()};\n    K.log('VFS: mounted '+dev+' on '+mp+' type '+fstype+(K._mounts[mp].ro?' (ro)':''));\n    K.emit('vfs:mount',{dev:dev,mp:mp,fstype:fstype});\n  },\n  umount:function(mp){\n    if(!K._mounts[mp]){K.log('umount: '+mp+' not mounted','warn');return false;}\n    K.emit('vfs:umount',{mp:mp,info:K._mounts[mp]});\n    delete K._mounts[mp]; K.log('VFS: umounted '+mp); return true;\n  },\n  getMountFor:function(path){\n    var best='',info=null;\n    Object.keys(K._mounts).forEach(function(mp){if(path.indexOf(mp)===0&&mp.length>best.length){best=mp;info=K._mounts[mp];}});\n    return info?Object.assign({mp:best},info):null;\n  },\n  isReadOnly:function(path){var m=K.getMountFor(path);return m?m.ro:false;},\n  spawn:function(name,fn,opts){\n    var pid=K._nextPid++; var ppid=(opts&&opts.ppid)||1;\n    var proc={pid:pid,ppid:ppid,name:name,state:'running',opts:opts||{},started:Date.now(),exitCode:null,\n      env:Object.assign({PATH:'/drv/0/bin:/drv/1/bin',HOME:'/drv/1/data/user/0',USER:'user',SHELL:'/drv/0/bin/sh',ALUMOS:'1'},(opts&&opts.env)||{})};\n    K._procs[pid]=proc;\n    K.log('init: spawned ['+pid+'] '+name+' (ppid='+ppid+')');\n    try{fn(proc,K);}catch(e){K.log('proc '+name+'['+pid+'] crashed: '+e,'err');proc.state='dead';proc.exitCode=1;K.signal(ppid,K.SIGCHLD);}\n    return pid;\n  },\n  kill:function(pid,sig){\n    sig=sig||K.SIGTERM; var p=K._procs[pid]; if(!p) return false;\n    K.log('kill: signal '+sig+' to ['+pid+'] '+p.name);\n    if(sig===K.SIGKILL){p.state='dead';p.exitCode=137;delete K._procs[pid];K.signal(p.ppid,K.SIGCHLD);return true;}\n    K.emit('signal:'+pid+':'+sig,{pid:pid,sig:sig});\n    if(sig===K.SIGTERM){p.state='dead';p.exitCode=0;delete K._procs[pid];K.signal(p.ppid,K.SIGCHLD);}\n    return true;\n  },\n  signal:function(pid,sig){if(K._procs[pid]) K.emit('signal:'+pid+':'+sig,{pid:pid,sig:sig});},\n  ps:function(){return Object.values(K._procs).map(function(p){return Object.assign({},p);});},\n  getProc:function(pid){return K._procs[pid]||null;},\n  thread:function(procPid,fn){\n    var tid=K._nextTid++;\n    K._threads[tid]={tid:tid,procPid:procPid,state:'running',started:Date.now()};\n    try{fn(tid);}catch(e){K.log('thread '+tid+' in proc '+procPid+' crashed: '+e,'err');}\n    K._threads[tid].state='done'; return tid;\n  },\n  mqOpen:function(name){if(!K._mqueues[name])K._mqueues[name]=[];return name;},\n  mqSend:function(name,msg){K.mqOpen(name);K._mqueues[name].push({msg:msg,ts:Date.now()});K.emit('mq:'+name,msg);},\n  mqRecv:function(name){return K._mqueues[name]?K._mqueues[name].shift()||null:null;},\n  mqPoll:function(name,cb){K.on('mq:'+name,cb);},\n  on:function(ev,fn,once){if(!K._handlers[ev])K._handlers[ev]=[];K._handlers[ev].push({fn:fn,once:!!once});},\n  once:function(ev,fn){K.on(ev,fn,true);},\n  off:function(ev,fn){if(K._handlers[ev])K._handlers[ev]=K._handlers[ev].filter(function(h){return h.fn!==fn;});},\n  emit:function(ev){\n    var args=Array.prototype.slice.call(arguments,1);\n    var hs=K._handlers[ev]||[];\n    K._handlers[ev]=hs.filter(function(h){try{h.fn.apply(null,args);}catch(e){}return !h.once;});\n  },\n  syscall:function(nr,args){\n    var tbl={\n      1:function(a){K.kill(a[0],K.SIGTERM);},\n      2:function(a){return alumos.FS.read(a[0]);},\n      3:function(a){return alumos.FS.write(a[0],a[1],a[2]||{});},\n      4:function(a){return alumos.FS.remove(a[0]);},\n      5:function(a){return alumos.FS.list(a[0]);},\n      6:function(a){return K.spawn(a[0],a[1],a[2]);},\n      7:function(a){return K.kill(a[0],a[1]);},\n      8:function(a){return K.ps();},\n      10:function(a){K.mqSend(a[0],a[1]);},\n      11:function(a){return K.mqRecv(a[0]);},\n      12:function(a){K.emit.apply(K,a);},\n    };\n    var fn=tbl[nr]; if(!fn){K.log('syscall '+nr+': ENOSYS','warn');return -38;}\n    try{return fn(args||[]);}catch(e){K.log('syscall '+nr+' fault: '+e,'err');return -1;}\n  },\n  sysfs:{\n    read:function(key){\n      var map={\n        'kernel/version':K.v,'kernel/arch':K.arch,\n        'kernel/cmdline':'root=/dev/dm-2 ro loglevel=7 androidboot.hardware=aluminum',\n        'proc/uptime':function(){return ((Date.now()-(K._bootTime||Date.now()))/1000).toFixed(2)+' 0.00';},\n        'proc/meminfo':function(){return 'MemTotal: 16384 MB\\nMemFree: '+(Math.floor(Math.random()*8000+4000))+' MB';},\n        'proc/cpuinfo':'processor: 0-11\\nmodel name: Google Tensor G5\\nBogoMIPS: 6600.00',\n        'proc/mounts':function(){return Object.keys(K._mounts).map(function(mp){var m=K._mounts[mp];return m.dev+' '+mp+' '+m.fstype+' '+(m.ro?'ro':'rw')+' 0 0';}).join('\\n');},\n        'proc/version':'Linux version 6.6.42-alumos (gcc 12.2.0) #1 SMP PREEMPT',\n      };\n      var v=map[key]; if(!v) return null;\n      return typeof v==='function'?v():v;\n    }\n  },\n  init:function(){\n    K._bootTime=Date.now();\n    K.log('AluminumOS kernel '+K.v+' ('+K.arch+') starting...');\n    K.log('Command line: root=/dev/dm-2 ro loglevel=7 androidboot.hardware=aluminum');\n    K.mount('/dev/dm-0','/','tmpfs');\n    K.mount('/drv/0','/system','alumosfs_ro',{ro:true});\n    K.mount('/drv/1','/data','alumosfs_rw');\n    K.mount('devtmpfs','/dev','devtmpfs');\n    K.mount('proc','/proc','proc');\n    K.mount('sysfs','/sys','sysfs');\n    K.mount('tmpfs','/tmp','tmpfs');\n    K._procs[1]={pid:1,ppid:0,name:'init',state:'running',started:K._bootTime,env:{PATH:'/drv/0/bin',HOME:'/root',USER:'root',ALUMOS:'1'}};\n    K.spawn('kthreadd',function(p){K.log('kthreadd: kernel thread daemon ready');},{ppid:0});\n    K.spawn('logd',function(p){K.log('logd: logging service started');K.mqOpen('logd');},{ppid:1});\n    K.spawn('servicemanager',function(p){K.log('servicemanager: binder IPC ready');},{ppid:1});\n    K.spawn('vold',function(p){K.log('vold: volume daemon ready');},{ppid:1});\n    K.spawn('netd',function(p){K.log('netd: network daemon, wlan0 UP');},{ppid:1});\n    K.spawn('surfaceflinger',function(p){K.log('SurfaceFlinger: EGL 1.5 / Vulkan 1.4 / 120Hz ready');},{ppid:1});\n    K.spawn('zygote',function(p){\n      K.log('Zygote: ART VM init, 3842 classes preloaded');\n      K.spawn('system_server',function(q){\n        K.log('system_server: starting services...');\n        var svcs=['ActivityManagerService','PackageManagerService','WindowManagerService','InputManagerService','PowerManagerService','BatteryService'];\n        svcs.forEach(function(s,i){setTimeout(function(){K.log('system_server: '+s+' ready');},i*40);});\n        setTimeout(function(){K.log('system_server: all services ready');K.emit('boot:complete');},400);\n      },{ppid:p.pid});\n    },{ppid:1});\n    K.spawn('adbd',function(p){K.log('adbd: '+(alumos.sys.getprop('ro.debuggable')==='1'?'started :5555':'disabled'));},{ppid:1});\n    K.spawn('magiskd',function(p){\n      if(localStorage.getItem('alum_magisk')==='1'){\n        K.log('magiskd: Magisk v28.1 started, root granted, SafetyNet passing');\n      }\n    },{ppid:1});\n    K._booted=true; K.emit('kernel:ready');\n    K.log('Kernel init complete in '+(Date.now()-K._bootTime)+'ms');\n  }\n};\nglobal.AluminumKernel=K;\nK.init();\n})(typeof globalThis!=='undefined'?globalThis:window);";
+  var kinjectSrc="(function(){\nvar sys=alumos.sys;\nsys.log('[kinject] Kernel environment preparation starting');\nsys.log('[kinject] alumos namespace: OK');\nsys.log('[kinject] IndexedDB FS: OK');\nalumos.FS.read('/drv/0/lib/kernel/sys-base/kernel.js').then(function(f){\n  if(!f||!f.content){sys.panic('kernel.js missing from /drv/0/lib/kernel/sys-base/',{caller:'kinject.js'});return;}\n  sys.log('[kinject] kernel.js found: '+f.content.length+' bytes');\n  if(f.content.length<2000){sys.panic('kernel.js integrity check failed',{caller:'kinject.js'});return;}\n  sys.log('[kinject] integrity OK \u2014 evaluating...');\n  if(typeof globalThis!=='undefined'){globalThis.__ALUMOS_KERNEL_VERSION__='6.6.42-alumos';globalThis.__ALUMOS_BOOT_TIME__=Date.now();}\n  try{\n    (new Function('alumos',f.content))(alumos);\n    sys.log('[kinject] kernel.js evaluated OK');\n    sys.log('[kinject] AluminumKernel: '+(typeof AluminumKernel!=='undefined'?'present':'MISSING'));\n  }catch(e){sys.panic('kernel eval exception: '+e.message,{caller:'kinject.js'});}\n}).catch(function(e){sys.panic('FS.read failed in kinject: '+e.message,{caller:'kinject.js'});});\n})();";
+  var bootSrc="(function(){\n'use strict';\nvar sys=alumos.sys;\nvar FS=alumos.FS;\nvar B={\n  stage:0,startTime:Date.now(),\n  log:function(m){sys.log('[GBoot/boot.js] '+m);},\n  run:function(){\n    B.log('GBoot Bootloader v2.1 (UEFI)');\n    B.log('Hardware: Google GoogleBook (aluminum_googlebook)');\n    B.log('Memory: 16384 MB LPDDR5X @ 8533 MHz');\n    B.log('Storage: /dev/sda 256 GB UFS 4.0');\n    B.stage=1; B.log('--- Stage 1: scanning partitions ---');\n    B.log('  /dev/sda1 [BOOT]   512MB FAT32');\n    B.log('  /dev/sda2 [SYSTEM] 8GB   EXT4 -> /drv/0 (ro)');\n    B.log('  /dev/sda3 [DATA]   240GB F2FS -> /drv/1 (rw)');\n    B.log('  /dev/sda4 [VENDOR] 1.5GB EXT4 (ro)');\n    B.stage=2; B.log('--- Stage 2: loading modules ---');\n    B.log('alumos.FS: OK');\n    B.log('alumos.sys: OK');\n    B.log('Mounted /drv/0 (ro), /drv/1 (rw)');\n    B.stage=3; B.log('--- Stage 3: loading kinject ---');\n    FS.read('/drv/0/lib/kernel/kinject.js').then(function(f){\n      if(!f||!f.content){B.log('FATAL: kinject.js not found');sys.panic('Boot failed: kinject.js missing',{caller:'boot.js'});return;}\n      B.log('kinject.js: '+f.content.length+' bytes');\n      B.stage=4; B.log('--- Stage 4: handing off to kinject ---');\n      B.log('Elapsed: '+(Date.now()-B.startTime)+'ms');\n      try{\n        (new Function('alumos',f.content))(alumos);\n        B.log('kinject returned OK');\n        B.stage=5; B.log('--- Stage 5: boot complete ---');\n        B.log('Total: '+(Date.now()-B.startTime)+'ms');\n      }catch(e){\n        B.log('FATAL: kinject exception: '+e.message);\n        sys.panic('kinject eval failed: '+e.message,{caller:'boot.js'});\n      }\n    }).catch(function(e){\n      B.log('FATAL: FS read error: '+e.message);\n      sys.panic('FS.read failed in boot.js: '+e.message,{caller:'boot.js'});\n    });\n  }\n};\nwindow.AluminumBoot=B;\nB.run();\n})();";
 
-  // ─ /drv/0 = read-only system drive ─
-  // /drv/0/lib/kernel/sys-base/kernel.js — the AluminumOS JS kernel
-  // ── /drv/0/lib/kernel/sys-base/kernel.js ──────────────────
-  // Full AluminumOS JS Kernel — process manager, VFS, IPC, signals, syscalls
-  const kernelSrc=`(function(global){
-'use strict';
-const K={
-  v:'6.6.42-alumos-kernel',arch:'aarch64',build:'A17QPR1.241201.001',_booted:false,
-  // ── Process table ──────────────────────────────────────
-  _procs:{},_nextPid:2,
-  _threads:{},_nextTid:1,
-  // ── Mount table ────────────────────────────────────────
-  _mounts:{},
-  // ── Event bus ──────────────────────────────────────────
-  _handlers:{},
-  // ── Signals ────────────────────────────────────────────
-  SIGTERM:15,SIGKILL:9,SIGINT:2,SIGHUP:1,SIGCHLD:17,SIGUSR1:10,SIGUSR2:12,
-  // ── IPC message queues ─────────────────────────────────
-  _mqueues:{},
-  // ── Kernel log ring buffer ─────────────────────────────
-  _dmesg:[],
-  log:function(m,level){
-    const ts=(performance.now()/1000).toFixed(6);
-    const entry='['+ts+'] '+(level==='err'?'[ERR] ':level==='warn'?'[WARN] ':'[INFO] ')+m;
-    K._dmesg.push(entry);
-    if(K._dmesg.length>512) K._dmesg.shift();
-    alumos.sys.log(m,level||'info');
-  },
-  dmesg:function(n){return K._dmesg.slice(n?-n:0).join('\\n');},
-  // ── VFS ────────────────────────────────────────────────
-  mount:function(dev,mp,fstype,opts){
-    K._mounts[mp]={dev,fstype,opts:opts||{},ro:dev.startsWith('/drv/0'),mountTime:Date.now()};
-    K.log('VFS: mounted '+dev+' on '+mp+' type '+fstype+(K._mounts[mp].ro?' (ro)':''));
-    K.emit('vfs:mount',{dev,mp,fstype});
-  },
-  umount:function(mp){
-    if(!K._mounts[mp]){K.log('umount: '+mp+' not mounted','warn');return false;}
-    K.emit('vfs:umount',{mp,info:K._mounts[mp]});
-    delete K._mounts[mp];
-    K.log('VFS: umounted '+mp);
-    return true;
-  },
-  getMountFor:function(path){
-    let best='',info=null;
-    Object.keys(K._mounts).forEach(mp=>{if(path.startsWith(mp)&&mp.length>best.length){best=mp;info=K._mounts[mp];}});
-    return info?{mp:best,...info}:null;
-  },
-  isReadOnly:function(path){const m=K.getMountFor(path);return m?m.ro:false;},
-  // ── Process management ─────────────────────────────────
-  spawn:function(name,fn,opts){
-    const pid=K._nextPid++;
-    const ppid=(opts&&opts.ppid)||1;
-    const proc={pid,ppid,name,state:'running',opts:opts||{},started:Date.now(),exitCode:null,env:{PATH:'/drv/0/bin:/drv/1/bin',HOME:'/drv/1/data/user/0',USER:'user',SHELL:'/drv/0/bin/sh',ALUMOS:'1',...((opts&&opts.env)||{})}};
-    K._procs[pid]=proc;
-    K.log('init: spawned ['+pid+'] '+name+' (ppid='+ppid+')');
-    try{fn(proc,K);}
-    catch(e){K.log('proc '+name+'['+pid+'] crashed: '+e,'err');proc.state='dead';proc.exitCode=1;K.signal(ppid,K.SIGCHLD);}
-    return pid;
-  },
-  kill:function(pid,sig){
-    sig=sig||K.SIGTERM;
-    const p=K._procs[pid]; if(!p){return false;}
-    K.log('kill: sending signal '+sig+' to ['+pid+'] '+p.name);
-    if(sig===K.SIGKILL){p.state='dead';p.exitCode=137;delete K._procs[pid];K.signal(p.ppid,K.SIGCHLD);return true;}
-    K.emit('signal:'+pid+':'+sig,{pid,sig});
-    if(sig===K.SIGTERM){p.state='dead';p.exitCode=0;delete K._procs[pid];K.signal(p.ppid,K.SIGCHLD);}
-    return true;
-  },
-  signal:function(pid,sig){if(K._procs[pid]) K.emit('signal:'+pid+':'+sig,{pid,sig});},
-  wait:function(pid){return new Promise(res=>{
-    const p=K._procs[pid];
-    if(!p||p.state==='dead'){res(p?p.exitCode:null);return;}
-    const h=()=>res(K._procs[pid]?K._procs[pid].exitCode:0);
-    K.on('signal:'+pid+':17',h);
-  });},
-  ps:function(){return Object.values(K._procs).map(p=>({...p}));},
-  getProc:function(pid){return K._procs[pid]||null;},
-  // ── Threads (lightweight) ──────────────────────────────
-  thread:function(procPid,fn){
-    const tid=K._nextTid++;
-    K._threads[tid]={tid,procPid,state:'running',started:Date.now()};
-    try{fn(tid);}catch(e){K.log('thread '+tid+' in proc '+procPid+' crashed: '+e,'err');}
-    K._threads[tid].state='done';
-    return tid;
-  },
-  // ── IPC message queues ─────────────────────────────────
-  mqOpen:function(name){if(!K._mqueues[name])K._mqueues[name]=[];return name;},
-  mqSend:function(name,msg){K.mqOpen(name);K._mqueues[name].push({msg,ts:Date.now()});K.emit('mq:'+name,msg);},
-  mqRecv:function(name){return K._mqueues[name]?K._mqueues[name].shift()||null:null;},
-  mqPoll:function(name,cb){K.on('mq:'+name,cb);},
-  // ── Event bus ──────────────────────────────────────────
-  on:function(ev,fn,once){
-    if(!K._handlers[ev])K._handlers[ev]=[];
-    K._handlers[ev].push({fn,once:!!once});
-  },
-  once:function(ev,fn){K.on(ev,fn,true);},
-  off:function(ev,fn){if(K._handlers[ev])K._handlers[ev]=K._handlers[ev].filter(h=>h.fn!==fn);},
-  emit:function(ev,...args){
-    const hs=K._handlers[ev]||[];
-    K._handlers[ev]=hs.filter(h=>{try{h.fn(...args);}catch(e){}return !h.once;});
-  },
-  // ── Syscalls ───────────────────────────────────────────
-  syscall:function(nr,args){
-    // nr: syscall number (Linux aarch64 compatible names)
-    const tbl={
-      1:function(a){K.log('sys_exit: pid '+a[0]+' exiting with code '+a[1]);K.kill(a[0],K.SIGTERM);},
-      2:function(a){return alumos.FS.read(a[0]);},  // sys_open/read
-      3:function(a){return alumos.FS.write(a[0],a[1],a[2]||{});}, // sys_write
-      4:function(a){return alumos.FS.remove(a[0]);}, // sys_unlink
-      5:function(a){return alumos.FS.list(a[0]);},   // sys_getdents
-      6:function(a){return K.spawn(a[0],a[1],a[2]);},// sys_clone
-      7:function(a){return K.kill(a[0],a[1]);},      // sys_kill
-      8:function(a){return K.ps();},                  // sys_waitpid (simplified)
-      9:function(a){K.log('sys_mmap: addr='+a[0]+' size='+a[1]);return a[0];},
-      10:function(a){K.mqSend(a[0],a[1]);},           // sys_msgsnd
-      11:function(a){return K.mqRecv(a[0]);},          // sys_msgrcv
-      12:function(a){K.emit(a[0],...(a.slice(1)||[]));},// sys_eventfd
-    };
-    const fn=tbl[nr]; if(!fn){K.log('syscall '+nr+': ENOSYS','warn');return -38;}
-    try{return fn(args||[]);}catch(e){K.log('syscall '+nr+' fault: '+e,'err');return -1;}
-  },
-  // ── sysfs / procfs ─────────────────────────────────────
-  sysfs:{
-    read:function(key){
-      const map={
-        'kernel/version':K.v,'kernel/arch':K.arch,'kernel/cmdline':'root=/dev/dm-2 ro loglevel=7 androidboot.hardware=aluminum',
-        'proc/uptime':function(){return ((Date.now()-(K._bootTime||Date.now()))/1000).toFixed(2)+' 0.00';},
-        'proc/meminfo':function(){return 'MemTotal: 16384 MB\nMemFree: '+(Math.floor(Math.random()*8000+4000))+' MB\nMemAvailable: '+(Math.floor(Math.random()*10000+3000))+' MB';},
-        'proc/cpuinfo':'processor: 0-11\nmodel name: Google Tensor G5\nBogoMIPS: 6600.00',
-        'proc/mounts':function(){return Object.entries(K._mounts).map(([mp,m])=>m.dev+' '+mp+' '+m.fstype+' '+(m.ro?'ro':'rw')+' 0 0').join('\n');},
-        'proc/version':'Linux version '+K.v+' (alumos-build@googlebook) (gcc 12.2.0) #1 SMP PREEMPT',
-      };
-      const v=map[key]; if(!v) return null;
-      return typeof v==='function'?v():v;
-    }
-  },
-  // ── Kernel init ────────────────────────────────────────
-  init:function(){
-    K._bootTime=Date.now();
-    K.log('AluminumOS kernel '+K.v+' ('+K.arch+') starting...');
-    K.log('Command line: root=/dev/dm-2 ro loglevel=7 systemd.log_level=debug androidboot.hardware=aluminum');
-    // Mount filesystems
-    K.mount('/dev/dm-0','/','tmpfs');
-    K.mount('/drv/0','/system','alumosfs_ro',{ro:true});
-    K.mount('/drv/1','/data','alumosfs_rw');
-    K.mount('devtmpfs','/dev','devtmpfs');
-    K.mount('proc','/proc','proc');
-    K.mount('sysfs','/sys','sysfs');
-    K.mount('tmpfs','/tmp','tmpfs');
-    // PID 1 — init
-    K._procs[1]={pid:1,ppid:0,name:'init',state:'running',started:K._bootTime,env:{PATH:'/drv/0/bin:/drv/1/bin',HOME:'/root',USER:'root',ALUMOS:'1'}};
-    // Spawn core services
-    K.spawn('kthreadd',function(p){K.log('kthreadd: kernel thread daemon ready');},{ppid:0});
-    K.spawn('ksoftirqd/0',function(p){},{ppid:2});
-    K.spawn('logd',function(p){K.log('logd: kernel log daemon started');
-      K.mqOpen('logd');
-      K.on('mq:logd',function(msg){console.debug('[logd]',msg);});
-    },{ppid:1});
-    K.spawn('servicemanager',function(p){K.log('servicemanager: binder IPC ready');K.mqOpen('binder');},{ppid:1});
-    K.spawn('vold',function(p){K.log('vold: volume daemon ready, watching /dev/block');},{ppid:1});
-    K.spawn('netd',function(p){K.log('netd: network daemon, interface wlan0 UP link/ether');},{ppid:1});
-    K.spawn('surfaceflinger',function(p){K.log('SurfaceFlinger: EGL 1.5 / Vulkan 1.4 / 120Hz display ready');},{ppid:1});
-    K.spawn('zygote',function(p){K.log('Zygote: ART VM initialized, preloaded 3842 classes');
-      K.spawn('system_server',function(q){
-        K.log('system_server: starting core Android services...');
-        ['ActivityManagerService','PackageManagerService','WindowManagerService','InputManagerService','PowerManagerService','BatteryService','AlarmManagerService','AccessibilityManagerService'].forEach(function(s,i){
-          setTimeout(function(){K.log('system_server: '+s+' ready');},i*50);
-        });
-        setTimeout(function(){K.log('system_server: all services started in '+Math.floor(Math.random()*400+1200)+'ms');K.emit('boot:complete');},500);
-      },{ppid:p.pid});
-    },{ppid:1});
-    K.spawn('adbd',function(p){K.log('adbd: ADB daemon '+(alumos.sys.getprop('ro.debuggable')==='1'?'started on :5555':'disabled (not debuggable)'));},{ppid:1});
-    K.spawn('magiskd',function(p){
-      if(localStorage.getItem('alum_magisk')==='1'){
-        K.log('magiskd: Magisk v28.1 daemon started');
-        K.log('magiskd: MagiskHide active, SafetyNet passing');
-        K.log('magiskd: root access granted (uid=0)');
-      }
-    },{ppid:1});
-    K._booted=true;
-    K.emit('kernel:ready');
-    K.log('Kernel init complete in '+((Date.now()-K._bootTime))+'ms');
-  }
-};
-global.AluminumKernel=K;
-K.init();
-})(typeof globalThis!=='undefined'?globalThis:window);`;
+  // Reseed if any core file is missing
+  var coreFiles=[
+    '/drv/0/lib/kernel/sys-base/kernel.js',
+    '/drv/0/lib/kernel/kinject.js',
+    '/drv/0/lib/boot/boot.js',
+  ];
+  var checks=await Promise.all(coreFiles.map(function(p){return FS.exists(p);}));
+  var needsSeed=checks.some(function(v){return !v;});
 
-  // ── /drv/0/lib/kernel/kinject.js ──────────────────────────
-  const kinjectSrc=`(function(){
-var sys=alumos.sys;
-sys.log('[kinject] Kernel environment preparation starting');
-sys.log('[kinject] alumos namespace: OK');
-sys.log('[kinject] IndexedDB FS: OK');
-alumos.FS.read('/drv/0/lib/kernel/sys-base/kernel.js').then(function(f){
-  if(!f||!f.content){
-    sys.panic('kernel.js missing from /drv/0/lib/kernel/sys-base/',{caller:'kinject.js'});
-    return;
-  }
-  sys.log('[kinject] kernel.js found: '+f.content.length+' bytes');
-  sys.log('[kinject] verifying kernel signature...');
-  // Simple integrity check — length must be > 2000 chars
-  if(f.content.length<2000){
-    sys.panic('kernel.js integrity check failed (too small)',{caller:'kinject.js'});
-    return;
-  }
-  sys.log('[kinject] integrity OK');
-  sys.log('[kinject] setting up kernel environment vars...');
-  // Expose a minimal env before kernel runs
-  if(typeof globalThis!=='undefined'){
-    globalThis.__ALUMOS_KERNEL_VERSION__='6.6.42-alumos';
-    globalThis.__ALUMOS_BOOT_TIME__=Date.now();
-  }
-  sys.log('[kinject] evaluating kernel.js...');
-  try{
-    (new Function('alumos',f.content))(alumos);
-    sys.log('[kinject] kernel.js evaluated OK');
-    sys.log('[kinject] AluminumKernel global: '+(typeof AluminumKernel!=='undefined'?'present':'MISSING'));
-  }catch(e){
-    sys.panic('kernel eval exception: '+e.message,{caller:'kinject.js',stack:e.stack});
-  }
-}).catch(function(e){
-  sys.panic('FS.read failed in kinject: '+e.message,{caller:'kinject.js'});
-});
-})();`;
-
-  // ── /drv/0/lib/boot/boot.js ───────────────────────────────
-  const bootSrc=`(function(){
-'use strict';
-var sys=alumos.sys;
-var FS=alumos.FS;
-var B={
-  stage:0,
-  startTime:Date.now(),
-  log:function(m){sys.log('[GBoot/boot.js] '+m);},
-  run:function(){
-    B.log('GBoot Bootloader v2.1 (UEFI)');
-    B.log('Hardware: Google GoogleBook (aluminum_googlebook)');
-    B.log('Firmware: UEFI 2.8 · Secure Boot: '+( localStorage.getItem('alum_gboot_disabled')==='1'?'BYPASSED':'OFF'));
-    B.log('Memory: 16384 MB LPDDR5X @ 8533 MHz');
-    B.log('Storage: /dev/sda (256 GB UFS 4.0)');
-    B.stage=1;
-    B.log('--- Stage 1: Pre-boot environment ---');
-    B.log('Scanning partition table...');
-    B.log('  /dev/sda1  [BOOT]   512 MB   FAT32');
-    B.log('  /dev/sda2  [SYSTEM] 8 GB     EXT4  -> /drv/0');
-    B.log('  /dev/sda3  [DATA]   240 GB   F2FS  -> /drv/1');
-    B.log('  /dev/sda4  [VENDOR] 1.5 GB   EXT4  (read-only)');
-    B.stage=2;
-    B.log('--- Stage 2: Loading boot modules ---');
-    B.log('Loading alumos.FS (IndexedDB backend)... OK');
-    B.log('Loading alumos.sys (system interface)... OK');
-    B.log('Mounting /drv/0 (ro)... OK');
-    B.log('Mounting /drv/1 (rw)... OK');
-    B.stage=3;
-    B.log('--- Stage 3: Loading kinject ---');
-    FS.read('/drv/0/lib/kernel/kinject.js').then(function(f){
-      if(!f||!f.content){
-        B.log('FATAL: kinject.js not found at /drv/0/lib/kernel/kinject.js');
-        sys.panic('Boot failed: kinject.js missing',{caller:'boot.js'});
-        return;
-      }
-      B.log('kinject.js: '+f.content.length+' bytes loaded');
-      B.stage=4;
-      B.log('--- Stage 4: Handing control to kinject ---');
-      B.log('Elapsed so far: '+( Date.now()-B.startTime)+'ms');
-      try{
-        (new Function('alumos',f.content))(alumos);
-        B.log('kinject returned control to bootloader');
-        B.stage=5;
-        B.log('--- Stage 5: Boot complete ---');
-        B.log('Total boot time: '+(Date.now()-B.startTime)+'ms');
-      }catch(e){
-        B.log('FATAL: kinject eval exception: '+e.message);
-        sys.panic('kinject eval failed: '+e.message,{caller:'boot.js',stack:e.stack});
-      }
-    }).catch(function(e){
-      B.log('FATAL: FS read error: '+e.message);
-      sys.panic('FS.read failed in boot.js: '+e.message,{caller:'boot.js'});
-    });
-  }
-};
-window.AluminumBoot=B;
-B.run();
-})();`;
-
-  // Seed only if kernel not already present
-  const existing=await FS.read('/drv/0/lib/kernel/sys-base/kernel.js');
-  if(!existing){
-    await FS.write('/drv/0/lib/kernel/sys-base/kernel.js', kernelSrc, {type:'kernel',ro:true,icon:SKULL_ICON,desc:'AluminumOS JS Kernel v6.6.42'});
-    await FS.write('/drv/0/lib/kernel/kinject.js', kinjectSrc, {type:'kinject',ro:true,desc:'Kernel environment injector'});
-    await FS.write('/drv/0/lib/boot/boot.js', bootSrc, {type:'bootloader',ro:true,desc:'GBoot bootloader v2.1'});
-    await FS.write('/drv/0/bin/sh', '#!/alumos/sh\n# AluminumOS shell stub\n', {type:'binary',ro:true,desc:'Shell'});
-    await FS.write('/drv/0/bin/ls', '// alumos ls binary stub\nalumos.FS.list(args[0]||"/drv").then(r=>r.forEach(f=>console.log(f.path)));', {type:'js',ro:true});
-    await FS.write('/drv/0/etc/alumos-release', 'NAME=AluminumOS\nVERSION=A17QPR1.241201.001\nARCH=aarch64\nKERNEL=6.6.42-alumos\n', {type:'text',ro:true});
-    await FS.write('/drv/1/data/user/0/.profile', '# AluminumOS user shell profile\nexport PATH=/drv/0/bin:/drv/1/bin:$PATH\nexport HOME=/drv/1/data/user/0\nexport ALUMOS=1\nexport USER=user\n', {type:'text'});
-    await FS.write('/drv/1/data/user/0/.bashrc', '# .bashrc\nalias ll="ls -la"\nalias la="ls -a"\nPS1="\\u@googlebook:\\w$ "\n', {type:'text'});
-    await FS.write('/drv/1/data/misc/log/boot.log', '['+new Date().toISOString()+'] alumos: boot sequence complete\n', {type:'log'});
-    await FS.write('/drv/1/data/user/0/hello.js', '// Example AluminumOS script\nconsole.log("Hello from AluminumOS JS runtime!");\nalumos.sys.log("hello.js executed successfully");\nalumos.sys.setprop("app.last_run","hello.js");\n', {type:'js'});
-    await FS.write('/drv/1/data/user/0/README.txt', 'Welcome to AluminumOS /drv/1!\n\nThis is the read-write data partition.\nYou can create, edit and delete files here.\n/drv/0 is the read-only system partition.\n\nTry opening hello.js in Files!\n', {type:'text'});
-    alumos.sys.log('alumos: FS seeded with full kernel + boot files');
+  if(needsSeed){
+    alumos.sys.log('alumos: core files missing — seeding filesystem...');
+    await FS.write('/drv/0/lib/kernel/sys-base/kernel.js',kernelSrc,{type:'kernel',ro:true,icon:SKULL_ICON,desc:'AluminumOS JS Kernel v6.6.42'});
+    await FS.write('/drv/0/lib/kernel/kinject.js',kinjectSrc,{type:'kinject',ro:true,desc:'Kernel environment injector'});
+    await FS.write('/drv/0/lib/boot/boot.js',bootSrc,{type:'bootloader',ro:true,desc:'GBoot bootloader v2.1'});
+    await FS.write('/drv/0/bin/sh','#!/alumos/sh',{type:'binary',ro:true});
+    await FS.write('/drv/0/etc/alumos-release','NAME=AluminumOS\nVERSION=A17QPR1.241201.001\nARCH=aarch64\n',{type:'text',ro:true});
+    await FS.write('/drv/1/data/user/0/.profile','export PATH=/drv/0/bin:/drv/1/bin:$PATH\nexport ALUMOS=1\n',{type:'text'});
+    await FS.write('/drv/1/data/user/0/.bashrc','alias ll="ls -la"\nPS1="\\u@googlebook:\\w$ "\n',{type:'text'});
+    await FS.write('/drv/1/data/misc/log/boot.log','['+new Date().toISOString()+'] alumos: boot complete\n',{type:'log'});
+    await FS.write('/drv/1/data/user/0/hello.js','console.log("Hello from AluminumOS!");\nalumos.sys.log("hello.js executed");\n',{type:'js'});
+    await FS.write('/drv/1/data/user/0/README.txt','Welcome to AluminumOS /drv/1!\n\n/drv/0 = read-only system\n/drv/1 = read-write data\n',{type:'text'});
+    alumos.sys.log('alumos: FS seed complete');
+  } else {
+    alumos.sys.log('alumos: FS integrity OK — all core files present');
   }
 
-  // Eval boot chain
-  const bootFile=await FS.read('/drv/0/lib/boot/boot.js');
+  // Eval the boot chain: boot.js -> kinject.js -> kernel.js
+  var bootFile=await FS.read('/drv/0/lib/boot/boot.js');
   if(bootFile&&bootFile.content){
-    try{ (new Function('alumos',bootFile.content))(alumos); }
-    catch(e){ alumos.sys.log('boot.js eval error: '+e,'err'); }
+    try{(new Function('alumos',bootFile.content))(alumos);}
+    catch(e){alumos.sys.log('boot.js eval error: '+e,'err');}
   }
 })();
 
