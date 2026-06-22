@@ -1,50 +1,246 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zulo's File Upload Service v2</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>zulo</title>
+
+<style>
+body{
+  margin:0;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at top left, #7a00ff 0%, transparent 40%),
+    radial-gradient(circle at bottom right, #4b0082 0%, transparent 40%),
+    linear-gradient(135deg, #000000, #12001f, #000000);
+  color:#eaeaea;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.panel{
+  width:85%;
+  max-width:560px;
+  padding:22px;
+  background:rgba(0,0,0,0.55);
+  border:1px solid rgba(160,80,255,0.18);
+  box-shadow:0 0 25px rgba(140,0,255,0.25);
+}
+
+h1{
+  margin:0 0 6px;
+  font-size:40px;
+
+  background:linear-gradient(90deg,#7a00ff,#fff,#b07cff,#fff,#7a00ff);
+  background-size:300% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+
+  animation:shift 8s linear infinite;
+}
+
+@keyframes shift{
+  0%{background-position:0% 50%;}
+  100%{background-position:100% 50%;}
+}
+
+.small{opacity:0.75;margin-bottom:18px;}
+
+ul{
+  margin:0;
+  padding-left:18px;
+}
+
+li{
+  margin:6px 0;
+  opacity:0.9;
+}
+
+/* BUTTON AREA */
+.shrine{
+  margin-top:20px;
+}
+
+.shrine button{
+  margin-bottom:10px;
+  margin-right:8px;
+  padding:8px 12px;
+  background:transparent;
+  border:1px solid rgba(160,80,255,0.4);
+  color:#eaeaea;
+  cursor:pointer;
+}
+
+.shrine button:hover{
+  background:rgba(160,80,255,0.2);
+}
+
+.grid{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.grid a img{
+  width:88px;
+  height:31px;
+  image-rendering:pixelated;
+}
+
+/* RAIN */
+#rain{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:999;
+}
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <header>
-            <h1>zulo's file upload service v2</h1>
-            <p class="pr-text">upload files by submitting a pull request</p>
-        </header>
 
-        <main>
-            <div class="stats-bar">
-                    <div class="stat">
-                    <span class="stat-number" id="file-count">0</span>
-                    <span class="stat-label">files</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-number">99.9%</span>
-                    <span class="stat-label">uptime</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-number">v2</span>
-                    <span class="stat-label">version</span>
-                </div>
-            </div>
+<div class="panel">
 
-            <section class="file-section">
-                <div class="section-header">
-                    <h2>available files</h2>
-                    <div class="search-box">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 14L11.1 11.1" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <input type="text" placeholder="search files..." id="search-input">
-                    </div>
-                </div>
-                <ul id="file-list"></ul>
-            </section>
-        </main>
+  <h1>zulo</h1>
+  <div class="small">i just mess around with systems and stuff</div>
 
+  <div>
+    <div class="small">interests</div>
+    <ul>
+      <li>vm / emulation stuff</li>
+      <li>android modding (gsis, shizuku, idk)</li>
+      <li>breaking and understanding os behavior</li>
+      <li>collabvm</li>
+      <li>termux</li>
+      <li>web experiments</li>
+    </ul>
+  </div>
+
+  <!-- SHRINE -->
+  <div class="shrine">
+
+    <button onclick="toggleRain()">MATRIX</button>
+
+    <!-- NEW SYSTEM BUTTONS -->
+    <button onclick="location.href='/alumos.html'">
+      AluminumOS Redirect
+    </button>
+
+    <button onclick="location.href='/storage_reset.html'">
+      Storage Clear Redirect
+    </button>
+
+    <div class="grid">
+      <a href="https://zulo.neocities.org"><img src="/button-88x31.gif"></a>
+      <a href="https://archlinux.org"><img src="/archlinux.gif"></a>
+      <a href="https://elijahr.dev/"><img src="/elijahr_88_31.png"></a>
+      <a href="https://madz.mov"><img src="/madzbutton.gif"></a>
+      <a href="https://computernewb.com"><img src="/collabvm.png"></a>
+      <a href="https://windows96.net/" target="_blank" rel="noopener noreferrer">
+        <img src="/w96_button.gif" width="88" height="31" alt="Windows96">
+      </a>
     </div>
-    <script src="script.js" defer></script>
+
+  </div>
+
+</div>
+
+<canvas id="rain"></canvas>
+
+<script>
+const canvas = document.getElementById("rain");
+const ctx = canvas.getContext("2d");
+const rand = (min, max)=>Math.floor(Math.random() * max) + min;
+
+let active = false;
+let drops = [];
+let w, h;
+
+function resize(){
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+const pool =
+  "0123456789" +
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+  "!@#$%^&*()_+-=[]{}|;:,.<>?" +
+  "アイウエオカキクケコサシスセソタチツテトナニヌネノ" +
+  "ハヒフヘホマミムメモヤユヨラリルレロワヲン" +
+  "ァィゥェォャュョッン";
+
+function createDrops(){
+  drops = [];
+  for(let i=0;i<150;i++){
+    drops.push({
+      x: Math.random()*w,
+      y: Math.random()*h,
+      v: 2 + Math.random()*5
+    });
+  }
+}
+
+function getChar() {
+  const r = Math.random();
+
+  // Latin numbers + symbols layer
+  if (r < 0.35) {
+    const pool = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    return pool[rand(0, pool.length - 1)];
+  }
+
+  if (r < 0.6) {
+    const symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+    return symbols[rand(0, symbols.length - 1)];
+  }
+
+  // your original CJK layer (UNCHANGED)
+  return String.fromCharCode(0x4e00 + rand(0, 90));
+}
+
+function draw(){
+  if(!active) return;
+
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  ctx.fillRect(0,0,w,h);
+
+  ctx.fillStyle = "#b07cff";
+  ctx.font = "18px monospace";
+
+  for(let d of drops){
+    // const text = chars[Math.floor(Math.random()*chars.length)];
+    // const text = String.fromCharCode(0x4e00 + rand(0, 90));
+    // const text = pool[rand(0, pool.length - 1)];
+    const text = getChar();
+    ctx.fillText(text, d.x, d.y);
+
+    d.y += d.v;
+    if(d.y > h){
+      d.y = 0;
+      d.x = Math.random()*w;
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+function toggleRain(){
+  active = !active;
+  if(active){
+    createDrops();
+    draw();
+  } else {
+    ctx.clearRect(0,0,w,h);
+  }
+}
+</script>
+
 </body>
 </html>
