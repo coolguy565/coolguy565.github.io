@@ -1,0 +1,5 @@
+repo/
+packages/*/src/
+packages/*/pkg/
+packages/*/*.pkg.tar.zst
+packages/*/*.pkg.tar.zst.sig

@@ -1,0 +1,54 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'build.sh'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  REPO_NAME: myrepo
+  PACKAGER_NAME: ${{ secrets.PACKAGER_NAME }}
+  PACKAGER_EMAIL: ${{ secrets.PACKAGER_EMAIL }}
+  GPGKEY: ${{ secrets.GPGKEY }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update system and install build tools
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed base-devel git gnupg sudo
+
+      - name: Create builder user
+        run: |
+          useradd -m builder
+          printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
+          chmod 440 /etc/sudoers.d/builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Build packages and create repo
+        env:
+          GPG_KEY_B64: ${{ secrets.GPG_KEY_B64 }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: su builder -c "cd \"$GITHUB_WORKSPACE\" && ./build.sh"
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: repo
+          force_orphan: true
