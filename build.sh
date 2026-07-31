@@ -27,7 +27,7 @@ echo "$GPG_KEY_B64" | base64 -d | gpg --batch --import
 gpgconf --kill gpg-agent || true
 gpgconf --launch gpg-agent
 
-KEYGRIP="$(gpg --with-keygrip --list-secret-keys "$GPGKEY" 2>/dev/null | awk '/Keygrip/ {print $2; exit}')"
+KEYGRIP="$(gpg --with-keygrip --list-secret-keys "$GPGKEY" 2>/dev/null | awk '/Keygrip/ {print $3; exit}')"
 if [[ -z "$KEYGRIP" ]]; then
   echo "::error::no keygrip found for GPGKEY=$GPGKEY" >&2
   exit 1
