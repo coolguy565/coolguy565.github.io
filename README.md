@@ -18,7 +18,8 @@ build.sh                      # builds packages, signs them, runs repo-add
 1. The repo is `coolguy565/coolguy565.github.io` (public). Pages is set to
    serve the `gh-pages` branch, which holds only the built repo files.
 
-2. A dedicated GPG signing key is used. Set these repo secrets
+2. A dedicated GPG signing key is used (`E36138CC5F015492A1D620581C4F28ACC1A18345`).
+   Set these repo secrets
    (Settings > Secrets and variables > Actions):
    | Secret            | Value                                                      |
    |-------------------|------------------------------------------------------------|
@@ -56,7 +57,7 @@ Push, wait for the build, done.
    sudo pacman-key --init
    curl -L -o myrepo.asc https://coolguy565.github.io/myrepo.asc
    sudo pacman-key --add myrepo.asc
-   sudo pacman-key --lsign-key KEYID
+   sudo pacman-key --lsign-key E36138CC5F015492A1D620581C4F28ACC1A18345
    ```
 
 3. Sync and install:
