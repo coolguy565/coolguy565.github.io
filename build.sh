@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 REPO_NAME="${REPO_NAME:-myrepo}"
+OUT_DIR="${OUT_DIR:-repo}"
 GPG_KEY_B64="${GPG_KEY_B64:-}"
 GPG_PASSPHRASE="${GPG_PASSPHRASE:-}"
 GPGKEY="${GPGKEY:-}"
@@ -39,7 +40,7 @@ fi
 
 printf 'GPGKEY="%s"\nPACKAGER="%s <%s>"\n' "$GPGKEY" "$PACKAGER_NAME" "$PACKAGER_EMAIL" > "$HOME/.makepkg.conf"
 
-mkdir -p "$REPO_NAME"
+mkdir -p "$OUT_DIR"
 shopt -s nullglob
 
 for pkgdir in packages/*/; do
@@ -50,11 +51,11 @@ for pkgdir in packages/*/; do
 done
 
 echo "::group::Creating repository database"
-cd "$REPO_NAME"
+cd "$OUT_DIR"
 find ../packages -maxdepth 2 -name '*.pkg.tar.zst' -exec cp {} . \;
 find ../packages -maxdepth 2 -name '*.pkg.tar.zst.sig' -exec cp {} . \;
 repo-add --sign -v -R "$REPO_NAME.db.tar.gz" ./*.pkg.tar.zst
 gpg --export --armor "$GPGKEY" > "$REPO_NAME.asc"
 echo "::endgroup::"
 
-echo "Packages built and database created in ./$REPO_NAME"
+echo "Packages built and database created in ./$OUT_DIR"
