@@ -10,10 +10,21 @@ PACKAGES=(base base-devel linux-firmware linux-cool linux-cool-headers btrfs-pro
   thunar networkmanager sudo git zsh curl \
   cool-install-scripts)
 
+TARGET_ROOT=""
+
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root." >&2
   exit 1
 fi
+
+error_handler() {
+  echo
+  echo "ERROR: install failed (line $1)." >&2
+  umount -R "$TARGET_ROOT" 2>/dev/null || true
+  echo "Install aborted. You can re-run the installer." >&2
+  exit 1
+}
+trap 'error_handler $LINENO' ERR
 
 # ---------- helpers ----------
 ask() { # prompt default -> answer
@@ -388,7 +399,19 @@ grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
 pacman -Syy
 
 echo "== Installing packages (this takes a while)"
-pacstrap -K "$TARGET_ROOT" "${PACKAGES[@]}"
+attempt=0
+while true; do
+  if pacstrap -K "$TARGET_ROOT" "${PACKAGES[@]}"; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  if [[ $attempt -ge 10 ]]; then
+    echo "ERROR: pacstrap failed after 10 attempts." >&2
+    exit 1
+  fi
+  echo "  pacstrap attempt $attempt failed - retrying in 5s..."
+  sleep 5
+done
 
 # persist the repo into the installed system so pacman works after reboot
 echo "== Configuring coolguy565 repo inside the new system"
