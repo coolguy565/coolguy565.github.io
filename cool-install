@@ -114,8 +114,10 @@ BANNER
 }
 
 step() {
+  clear
   blue_figlet "Cool Arch"
   echo "  == $1 =="
+  echo
 }
 
 # ---------- 1. banner ----------
@@ -124,8 +126,7 @@ if ! command -v figlet >/dev/null 2>&1; then
   echo "Installing figlet..."
   pacman -Sy --noconfirm figlet >/dev/null 2>&1 || true
 fi
-clear
-blue_figlet "Cool Arch"
+step "Welcome to Cool Arch"
 
 # ---------- 2. language / keyboard ----------
 step "language / keyboard"
