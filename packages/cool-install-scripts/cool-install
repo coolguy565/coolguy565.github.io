@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_NAME="coolguy565"
 REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
 REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
-PACKAGES=(base base-devel linux-firmware linux-cool linux-cool-headers \
+PACKAGES=(base base-devel linux-firmware linux-cool linux-cool-headers btrfs-progs \
   hyprland waybar hyprpaper hypridle hyprshutdown walker foot mako \
   thunar networkmanager sudo git zsh curl \
   cool-install-scripts)
@@ -315,7 +315,7 @@ case "$MODE" in
       EFI_PART="${DEV}1"; ROOT_PART="${DEV}2"
     fi
     mkfs.fat -F32 "$EFI_PART"
-    mkfs.ext4 "$ROOT_PART"
+    mkfs.btrfs -f "$ROOT_PART"
     ;;
   alongside)
     echo "== Shrinking largest ext4 partition on $DEV"
@@ -352,13 +352,18 @@ case "$MODE" in
       EFI_PART="/dev/${disk}$(lsblk -n -o NAME "$DEV" | wc -l)"
       mkfs.fat -F32 "$EFI_PART"
     fi
-    mkfs.ext4 "$ROOT_PART"
+    mkfs.btrfs -f "$ROOT_PART"
     ;;
 esac
 
-# ---------- 8.5 mount ----------
+# ---------- 8.5 mount (Btrfs @ + @home subvolumes) ----------
 mount "$ROOT_PART" "$TARGET_ROOT"
-mkdir -p "$TARGET_ROOT/boot"
+btrfs subvolume create "$TARGET_ROOT/@"
+btrfs subvolume create "$TARGET_ROOT/@home"
+umount "$TARGET_ROOT"
+mount -o subvol=/@,compress=zstd "$ROOT_PART" "$TARGET_ROOT"
+mkdir -p "$TARGET_ROOT/home" "$TARGET_ROOT/boot"
+mount -o subvol=/@home,compress=zstd "$ROOT_PART" "$TARGET_ROOT/home"
 mount "$EFI_PART" "$TARGET_ROOT/boot"
 
 # ---------- 9. repo + pacstrap ----------

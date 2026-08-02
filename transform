@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# Cool Arch transform - turn an existing Arch Linux system into Cool Arch.
+# Usage: curl -fsSL https://coolguy565.github.io/transform | sudo bash
+set -euo pipefail
+
+REPO_NAME="coolguy565"
+REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
+REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
+
+TARGET_USER="${SUDO_USER:-$USER}"
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+
+ask() { local ans; read -rp "  $1 [$2]: " ans </dev/tty; echo "${ans:-$2}"; }
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run as root (sudo)." >&2
+  exit 1
+fi
+
+# ---------- banner ----------
+if command -v figlet >/dev/null 2>&1; then
+  tput setaf 4; figlet -f slant "Cool Arch"; tput sgr0
+else
+  echo "== Cool Arch =="
+fi
+echo "  Transforming $(uname -r) into Cool Arch..."
+
+# ---------- selections ----------
+echo
+echo "== Caps Lock behavior"
+echo "  1) Caps --> Caps"
+echo "  2) Caps --> Compose"
+echo "  3) Caps --> Ctrl"
+read -rp "  Choice [1]: " caps_choice </dev/tty
+case "${caps_choice:-1}" in
+  2) KB_OPTIONS="compose:caps" ;;
+  3) KB_OPTIONS="ctrl:nocaps" ;;
+  *) KB_OPTIONS="" ;;
+esac
+
+res=$(ask "Screen resolution (e.g. 1920x1080; blank = auto)" "1920x1080")
+hz=$(ask "Refresh rate (blank = default)" "")
+if [[ -z "$res" || $res == "auto" ]]; then
+  MONITOR_MODE="preferred"
+elif [[ -n "$hz" ]]; then
+  MONITOR_MODE="${res}@${hz}"
+else
+  MONITOR_MODE="$res"
+fi
+
+echo
+echo "== Display manager"
+echo "  1) SDDM (recommended for Hyprland)"
+echo "  2) None (auto-start Hyprland on tty1)"
+read -rp "  Choice [1]: " dm_choice </dev/tty
+case "${dm_choice:-1}" in
+  2) DM="none" ;;
+  *) DM="sddm" ;;
+esac
+
+echo
+echo "== Browser"
+echo "  1) Google Chrome  2) Firefox  3) LibreWolf  4) Chromium  5) Brave"
+read -rp "  Choice [2]: " br_choice </dev/tty
+case "${br_choice:-2}" in
+  1) BROWSER="google-chrome" ;;
+  3) BROWSER="librewolf-bin" ;;
+  4) BROWSER="chromium" ;;
+  5) BROWSER="brave-bin" ;;
+  *) BROWSER="firefox" ;;
+esac
+
+echo
+echo "== Installing packages"
+grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
+  printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
+  curl -fsSL -o /tmp/cool.asc "$REPO_URL/$REPO_NAME.asc"
+  pacman-key --add /tmp/cool.asc
+  pacman-key --lsign-key "$REPO_KEY"
+}
+pacman -Syy
+pacman -S --noconfirm --needed \
+  linux-cool linux-cool-headers \
+  hyprland waybar hyprpaper hypridle hyprshutdown walker foot mako \
+  networkmanager zsh figlet cool-install-scripts "$BROWSER" \
+  $([[ $DM != "none" ]] && echo "$DM")
+
+# ---------- configs ----------
+echo "== Applying Cool Arch configs to $TARGET_USER"
+mkdir -p "$TARGET_HOME/.config/hypr" "$TARGET_HOME/.config/waybar" "$TARGET_HOME/.config/walker"
+install -m644 /usr/share/cool-arch/hypr/hyprland.lua "$TARGET_HOME/.config/hypr/hyprland.lua"
+install -m644 /usr/share/cool-arch/hypr/hyprpaper.conf "$TARGET_HOME/.config/hypr/hyprpaper.conf"
+install -m644 /usr/share/cool-arch/waybar/config.jsonc "$TARGET_HOME/.config/waybar/config.jsonc"
+install -m644 /usr/share/cool-arch/waybar/style.css "$TARGET_HOME/.config/waybar/style.css"
+install -m644 /usr/share/cool-arch/walker/config.toml "$TARGET_HOME/.config/walker/config.toml"
+sed -i "s/{{MONITOR_MODE}}/$MONITOR_MODE/" "$TARGET_HOME/.config/hypr/hyprland.lua"
+sed -i "s/{{KEYBOARD_LAYOUT}}/us/" "$TARGET_HOME/.config/hypr/hyprland.lua"
+sed -i "s/{{CAPS_OPTION}}/$KB_OPTIONS/" "$TARGET_HOME/.config/hypr/hyprland.lua"
+chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config"
+
+# ---------- display manager / tty autostart ----------
+if [[ $DM != "none" ]]; then
+  systemctl enable "$DM"
+  echo "== Enabled $DM"
+else
+  grep -q "start-hyprland" "$TARGET_HOME/.zshrc" 2>/dev/null || {
+    cat >> "$TARGET_HOME/.zshrc" <<'ZSH'
+
+# Cool Arch: auto-start Hyprland at the console (tty1), not in a pty
+if [[ "$(tty)" == "/dev/tty1" ]] && [[ "$(tty)" != /dev/pts/* ]]; then
+  exec start-hyprland
+fi
+ZSH
+    chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.zshrc"
+  }
+  echo "== Added Hyprland autostart to $TARGET_HOME/.zshrc"
+fi
+
+echo
+echo "== Cool Arch transform complete!"
+echo "  Reboot to enter your new system."
