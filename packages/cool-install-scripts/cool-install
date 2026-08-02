@@ -139,6 +139,20 @@ while :; do
   fi
 done
 
+# ---------- 5.5 display manager ----------
+echo
+echo "== Display manager"
+echo "  1) SDDM (recommended for Hyprland)"
+echo "  2) GDM"
+echo "  3) None (boot to a TTY)"
+read -rp "  Choice [1]: " dm_choice
+case "${dm_choice:-1}" in
+  2) DM="gdm"  DM_PKG="gdm" ;;
+  3) DM="none" DM_PKG="" ;;
+  *) DM="sddm" DM_PKG="sddm" ;;
+esac
+[[ $DM != "none" ]] && PACKAGES+=("$DM_PKG")
+
 # ---------- 6. disk selection + OS detection ----------
 echo
 echo "== Available disks:"
@@ -221,6 +235,7 @@ echo "  Language / keyboard : $KB_LAYOUT${KB_VARIANT:+ $KB_VARIANT}  (locale: $L
 echo "  Caps Lock behavior  : ${KB_OPTIONS:-Caps --> Caps}"
 echo "  Resolution          : $MONITOR_MODE"
 echo "  Username            : $username"
+echo "  Display manager     : ${DM:-sddm}"
 echo "  Target disk         : $DEV (${DISK_GB} GB)"
 case "$MODE" in
   erase)     echo "  Install mode        : ERASE disk and install Cool Arch Linux" ;;
@@ -335,6 +350,9 @@ sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' "$TARGET_ROOT/e
 
 # services
 arch-chroot "$TARGET_ROOT" systemctl enable NetworkManager
+if [[ $DM != "none" ]]; then
+  arch-chroot "$TARGET_ROOT" systemctl enable "$DM"
+fi
 
 # ---------- 11. certificate fix script (optional) ----------
 echo
