@@ -45,6 +45,8 @@ key_input() { # arrow keys / enter (handles CSI and SS3)
 size_slider() { # default step min max -> selected size
   local size="$1" step="$2" min="$3" max="$4"
   local width=40 filled key
+  (( size < min )) && size=$min
+  (( size > max )) && size=$max
   while true; do
     filled=$(( size * width / max ))
     printf '\r  Cool Arch size: %4d GB  [' "$size"
@@ -144,6 +146,8 @@ lsblk -d -o NAME,SIZE,MODEL -n
 disk=$(ask "Target disk (e.g. nvme0n1, sda)" "")
 [[ -b "/dev/$disk" ]] || { echo "Not a block device: $disk" >&2; exit 1; }
 DEV="/dev/$disk"
+DISK_GB=$(( $(lsblk -b -d -n -o SIZE "$DEV") / 1073741824 ))
+echo "  Disk size: ${DISK_GB} GB"
 
 # existing OS detection: any partitions already present?
 parts=$(lsblk -n -o NAME "$DEV" | grep -v "^${disk}$")
@@ -217,6 +221,33 @@ case "$MODE" in
     ;;
   alongside)
     echo "== Shrinking largest ext4 partition on $DEV"
+    echo "  Select how much of the disk Cool Arch should use (max ${DISK_GB} GB)."
+    grow=$(size_slider 100 5 20 "$DISK_GB")
+    if (( grow >= DISK_GB )); then
+      echo "  Full disk selected - switching to erase install."
+      MODE=erase
+    fi
+    ;;
+esac
+
+case "$MODE" in
+  erase)
+    echo "== Partitioning $DEV (erase)"
+    wipefs -a "$DEV"
+    parted -s "$DEV" mklabel gpt
+    parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
+    parted -s "$DEV" set 1 esp on
+    parted -s "$DEV" mkpart "ROOT" ext4 1025MiB 100%
+    if [[ $DEV == /dev/nvme* ]]; then
+      EFI_PART="${DEV}p1"; ROOT_PART="${DEV}p2"
+    else
+      EFI_PART="${DEV}1"; ROOT_PART="${DEV}2"
+    fi
+    mkfs.fat -F32 "$EFI_PART"
+    mkfs.ext4 "$ROOT_PART"
+    ;;
+  alongside)
+    echo "== Shrinking largest ext4 partition on $DEV"
     largest=""
     largest_size=0
     while read -r name fstype size; do
@@ -231,8 +262,7 @@ case "$MODE" in
     [[ -n "$largest" ]] || { echo "No ext4 partition to shrink!" >&2; exit 1; }
     largest_dev="/dev/$largest"
     part_num=$(echo "$largest" | sed "s/^${disk}p\?//")
-    grow=$(size_slider 100 5 20 2000)
-    # shrink filesystem, then partition, by `grow` GB
+    # shrink filesystem, then partition, leaving `grow` GB for Cool Arch
     e2fsck -fy "$largest_dev"
     resize2fs "$largest_dev" "${grow}G"
     fs_new_end=$(parted -s "$DEV" unit B print | awk -v n="$part_num" -v g="${grow}" '$1==n{split($3,a,"B"); split($2,b,"B"); end=(b[1]+(a[1]-b[1])-(g*1073741824)); printf "%d", end}')
