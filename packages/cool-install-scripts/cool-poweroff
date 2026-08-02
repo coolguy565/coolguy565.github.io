@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# cool-poweroff - gracefully close apps via hyprshutdown, then power off the system.
+set -euo pipefail
+
+if command -v hyprshutdown >/dev/null 2>&1; then
+  exec hyprshutdown -t 'Shutting down...' --post-cmd 'shutdown -P 0'
+fi
+
+# fallback without hyprshutdown
+command -v notify-send >/dev/null 2>&1 && notify-send -i system-shutdown "Shutting down" "Goodbye!"
+sleep 1
+shutdown -P now

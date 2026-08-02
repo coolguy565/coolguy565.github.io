@@ -1,0 +1,99 @@
+# Cool Arch Walker configuration (minimal; defaults fill the rest)
+force_keyboard_focus = false
+close_when_open = true
+click_to_close = true
+as_window = false
+single_click_activation = true
+selection_wrap = false
+global_argument_delimiter = "#"
+exact_search_prefix = "'"
+theme = "default"
+disable_mouse = false
+debug = false
+page_jump_items = 10
+hide_quick_activation = false
+hide_action_hints = false
+hide_return_action = false
+keybind_symbols = true
+resume_last_query = false
+actions_as_menu = false
+
+[shell]
+exclusive_zone = -1
+layer = "overlay"
+
+[placeholders]
+"default" = { input = "Search", list = "No Results" }
+"menus:tools" = { input = "Search Tools", list = "No Tools" }
+
+[keybinds]
+close = ["Escape"]
+next = ["Down"]
+previous = ["Up"]
+left = ["Left"]
+right = ["Right"]
+down = ["Down"]
+up = ["Up"]
+quick_activate = ["F1", "F2", "F3", "F4"]
+page_down = ["Page_Down"]
+page_up = ["Page_Up"]
+show_actions = ["alt j"]
+
+[providers]
+default = [
+  "desktopapplications",
+  "menus:tools",
+  "calc",
+  "websearch",
+]
+empty = ["menus:tools"]
+max_results = 50
+
+[providers.max_results_provider]
+desktopapplications = 5
+
+[[providers.prefixes]]
+prefix = "?"
+provider = "menus:tools"
+
+[[providers.prefixes]]
+prefix = "="
+provider = "calc"
+
+[[providers.prefixes]]
+prefix = "@"
+provider = "websearch"
+
+[[providers.prefixes]]
+prefix = ":"
+provider = "clipboard"
+
+[providers.actions]
+fallback = [
+  { action = "menus:open", label = "open", after = "Nothing" },
+  { action = "menus:default", label = "run", after = "Close" },
+  { action = "menus:parent", label = "back", bind = "Escape", after = "Nothing" },
+  { action = "erase_history", label = "clear hist", bind = "ctrl h", after = "AsyncReload" },
+]
+
+dmenu = [{ action = "select", default = true, bind = "Return" }]
+
+desktopapplications = [
+  { action = "start", default = true, bind = "Return" },
+  { action = "start:keep", label = "open+next", bind = "shift Return", after = "KeepOpen" },
+]
+
+calc = [
+  { action = "copy", default = true, bind = "Return" },
+  { action = "delete", bind = "ctrl d", after = "AsyncReload" },
+]
+
+websearch = [
+  { action = "search", default = true, bind = "Return" },
+  { action = "open_url", label = "open url", default = true, bind = "Return" },
+]
+
+clipboard = [
+  { action = "copy", default = true, bind = "Return" },
+  { action = "remove", bind = "ctrl d", after = "AsyncClearReload" },
+]

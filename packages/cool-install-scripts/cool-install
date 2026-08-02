@@ -1,0 +1,297 @@
+#!/usr/bin/env bash
+# cool-install - Cool Arch Linux installer (run from the Arch ISO, as root)
+set -euo pipefail
+
+REPO_NAME="coolguy565"
+REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
+REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
+PACKAGES=(base base-devel linux-firmware linux-cool linux-cool-headers \
+  hyprland waybar hyprpaper hypridle hyprshutdown walker foot mako \
+  thunar firefox networkmanager sudo git zsh \
+  cool-install-scripts)
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run as root." >&2
+  exit 1
+fi
+
+# ---------- helpers ----------
+ask() { # prompt default -> answer
+  local ans
+  read -rp "  $1 [$2]: " ans
+  echo "${ans:-$2}"
+}
+confirm() { # prompt -> 0 yes / 1 no
+  local ans
+  read -rp "  $1 [y/N]: " ans
+  [[ ${ans,,} == y ]]
+}
+blue_figlet() {
+  if command -v figlet >/dev/null 2>&1; then
+    tput setaf 4
+    figlet -f slant "$1"
+    tput sgr0
+  else
+    echo "== $1 =="
+  fi
+}
+
+# ---------- 1. banner ----------
+clear
+blue_figlet "Cool Arch"
+
+# ---------- 2. language / keyboard ----------
+echo "== Select language"
+echo "  1) English (US)      us      en_US.UTF-8"
+echo "  2) Portuguese (BR)   br-abnt2 pt_BR.UTF-8"
+echo "  3) German            de      de_DE.UTF-8"
+echo "  4) French            fr      fr_FR.UTF-8"
+echo "  5) Spanish           es      es_ES.UTF-8"
+read -rp "  Choice [1]: " lang_choice
+case "${lang_choice:-1}" in
+  1) KB_LAYOUT="us"   KB_VARIANT=""   LOCALE="en_US.UTF-8" ;;
+  2) KB_LAYOUT="br"   KB_VARIANT="abnt2" LOCALE="pt_BR.UTF-8" ;;
+  3) KB_LAYOUT="de"   KB_VARIANT=""   LOCALE="de_DE.UTF-8" ;;
+  4) KB_LAYOUT="fr"   KB_VARIANT=""   LOCALE="fr_FR.UTF-8" ;;
+  5) KB_LAYOUT="es"   KB_VARIANT=""   LOCALE="es_ES.UTF-8" ;;
+  *) echo "Invalid, using English"; KB_LAYOUT="us"; KB_VARIANT=""; LOCALE="en_US.UTF-8" ;;
+esac
+
+# ---------- 3. caps option ----------
+echo
+echo "== Caps Lock behavior"
+echo "  1) Caps --> Caps"
+echo "  2) Caps --> Compose"
+echo "  3) Caps --> Ctrl"
+read -rp "  Choice [1]: " caps_choice
+case "${caps_choice:-1}" in
+  1) KB_OPTIONS="" ;;
+  2) KB_OPTIONS="compose:caps" ;;
+  3) KB_OPTIONS="ctrl:nocaps" ;;
+  *) KB_OPTIONS="" ;;
+esac
+
+# ---------- 4. resolution ----------
+echo
+res=$(ask "Screen resolution (e.g. 1920x1080; blank = auto)" "1920x1080")
+hz=$(ask "Refresh rate (blank = default)" "")
+if [[ -z "$res" || $res == "auto" ]]; then
+  MONITOR_MODE="preferred"
+elif [[ -n "$hz" ]]; then
+  MONITOR_MODE="${res}@${hz}"
+else
+  MONITOR_MODE="$res"
+fi
+
+# ---------- 5. user / password ----------
+echo
+while :; do
+  username=$(ask "Username" "")
+  [[ -n "$username" ]] && break
+  echo "  Username cannot be empty."
+done
+while :; do
+  read -rsp "  Password: " pass1; echo
+  read -rsp "  Confirm password: " pass2; echo
+  if [[ -z "$pass1" ]]; then
+    echo "  Password cannot be empty."
+  elif [[ "$pass1" != "$pass2" ]]; then
+    echo "  Passwords do not match."
+  else
+    break
+  fi
+done
+
+# ---------- 6. disk selection + OS detection ----------
+echo
+echo "== Available disks:"
+lsblk -d -o NAME,SIZE,MODEL -n
+disk=$(ask "Target disk (e.g. nvme0n1, sda)" "")
+[[ -b "/dev/$disk" ]] || { echo "Not a block device: $disk" >&2; exit 1; }
+DEV="/dev/$disk"
+
+# existing OS detection: any partitions already present?
+parts=$(lsblk -n -o NAME "$DEV" | grep -v "^${disk}$")
+
+echo
+echo "== Detecting installed OSes (os-prober)"
+pacman -S --noconfirm os-prober >/dev/null 2>&1 || true
+osprober_out=""
+if command -v os-prober >/dev/null 2>&1; then
+  osprober_out=$(os-prober 2>/dev/null) || true
+fi
+WINDOWS_FOUND=0
+if [[ -n "$osprober_out" ]]; then
+  while read -r line; do
+    dev=$(echo "$line" | cut -d: -f1)
+    osname=$(echo "$line" | cut -d: -f3)
+    echo "    found: $osname on $dev"
+    echo "$line" | grep -qi "windows" && WINDOWS_FOUND=1
+  done <<< "$osprober_out"
+else
+  echo "    no other OS detected by os-prober"
+fi
+
+if [[ -n "$parts" ]]; then
+  echo
+  echo "== An existing OS/partitions were found on $DEV"
+  if [[ $WINDOWS_FOUND -eq 1 ]]; then
+    echo "  (Windows detected - it will appear in the boot menu)"
+  fi
+  echo "  1) Install alongside the existing OS"
+  echo "  2) Erase disk and install Cool Arch Linux"
+  read -rp "  Choice [1]: " disk_choice
+  case "${disk_choice:-1}" in
+    2) MODE=erase ;;
+    *) MODE=alongside ;;
+  esac
+else
+  MODE=erase
+fi
+
+if [[ $MODE == alongside ]]; then
+  echo "== Alongside install: this will shrink the largest ext4 partition on $DEV."
+  confirm "Proceed?" || exit 1
+fi
+if [[ $MODE == erase ]]; then
+  confirm "WARNING: this ERASES everything on $DEV. Continue?" || exit 1
+  if [[ $WINDOWS_FOUND -eq 1 ]]; then
+    confirm "FINAL WARNING: Windows was detected on this disk and WILL BE DESTROYED. Continue?" || exit 1
+  fi
+fi
+
+# ---------- 7. partition ----------
+TARGET_ROOT="/mnt/cool"
+mkdir -p "$TARGET_ROOT"
+
+case "$MODE" in
+  erase)
+    echo "== Partitioning $DEV (erase)"
+    wipefs -a "$DEV"
+    parted -s "$DEV" mklabel gpt
+    parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
+    parted -s "$DEV" set 1 esp on
+    parted -s "$DEV" mkpart "ROOT" ext4 1025MiB 100%
+    if [[ $DEV == /dev/nvme* ]]; then
+      EFI_PART="${DEV}p1"; ROOT_PART="${DEV}p2"
+    else
+      EFI_PART="${DEV}1"; ROOT_PART="${DEV}2"
+    fi
+    mkfs.fat -F32 "$EFI_PART"
+    mkfs.ext4 "$ROOT_PART"
+    ;;
+  alongside)
+    echo "== Shrinking largest ext4 partition on $DEV"
+    largest=""
+    largest_size=0
+    while read -r name fstype size; do
+      if [[ "$fstype" == "ext4" ]]; then
+        size_bytes=$(numfmt --from=iec "$size" 2>/dev/null || echo 0)
+        if [[ $size_bytes -gt $largest_size ]]; then
+          largest_size=$size_bytes
+          largest="$name"
+        fi
+      fi
+    done < <(lsblk -n -o NAME,FSTYPE,SIZE -r "$DEV" | awk '$2=="ext4"{print}')
+    [[ -n "$largest" ]] || { echo "No ext4 partition to shrink!" >&2; exit 1; }
+    largest_dev="/dev/$largest"
+    part_num=$(echo "$largest" | sed "s/^${disk}p\?//")
+    grow=$(ask "Size for Cool Arch (GB)" "100")
+    # shrink filesystem, then partition, by `grow` GB
+    e2fsck -fy "$largest_dev"
+    resize2fs "$largest_dev" "${grow}G"
+    fs_new_end=$(parted -s "$DEV" unit B print | awk -v n="$part_num" -v g="${grow}" '$1==n{split($3,a,"B"); split($2,b,"B"); end=(b[1]+(a[1]-b[1])-(g*1073741824)); printf "%d", end}')
+    parted -s "$DEV" resizepart "$part_num" "${fs_new_end}B"
+    parted -s "$DEV" mkpart "COOL" ext4 "$((fs_new_end/1048576))MiB" 100%
+    if [[ $DEV == /dev/nvme* ]]; then
+      EFI_PART="${DEV}p1"; ROOT_PART="${DEV}p$(($(lsblk -n -o NAME "$DEV" | wc -l) - 1))"
+    else
+      EFI_PART="${DEV}1"; ROOT_PART="${DEV}$(lsblk -n -o NAME "$DEV" | wc -l)"
+    fi
+    # ensure an EFI partition exists and is bootable
+    if ! blkid -s TYPE -o value "$EFI_PART" 2>/dev/null | grep -q "vfat\|fat"; then
+      echo "== No EFI partition found; creating one."
+      parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
+      parted -s "$DEV" set "$(lsblk -n -o NAME "$DEV" | wc -l)" esp on
+      EFI_PART="/dev/${disk}$(lsblk -n -o NAME "$DEV" | wc -l)"
+      mkfs.fat -F32 "$EFI_PART"
+    fi
+    mkfs.ext4 "$ROOT_PART"
+    ;;
+esac
+
+# ---------- 8. mount ----------
+mount "$ROOT_PART" "$TARGET_ROOT"
+mkdir -p "$TARGET_ROOT/boot"
+mount "$EFI_PART" "$TARGET_ROOT/boot"
+
+# ---------- 9. repo + pacstrap ----------
+echo "== Adding coolguy565 repo"
+grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
+  printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
+  curl -fsSL -o /tmp/cool.asc "$REPO_URL/$REPO_NAME.asc"
+  pacman-key --add /tmp/cool.asc
+  pacman-key --lsign-key "$REPO_KEY"
+}
+pacman -Sy
+
+echo "== Installing packages (this takes a while)"
+pacstrap -K "$TARGET_ROOT" "${PACKAGES[@]}"
+
+# ---------- 10. configure ----------
+genfstab -U "$TARGET_ROOT" >> "$TARGET_ROOT/etc/fstab"
+
+# locale
+sed -i "s/^#${LOCALE} UTF-8/${LOCALE} UTF-8/" "$TARGET_ROOT/etc/locale.gen"
+arch-chroot "$TARGET_ROOT" locale-gen
+echo "LANG=$LOCALE" > "$TARGET_ROOT/etc/locale.conf"
+echo "KEYMAP=${KB_LAYOUT}" > "$TARGET_ROOT/etc/vconsole.conf"
+
+hostname=$(ask "Hostname" "coolarch")
+echo "$hostname" > "$TARGET_ROOT/etc/hostname"
+
+echo
+echo "== Timezone (e.g. America/Sao_Paulo, Europe/London)"
+tz=$(ask "Timezone" "Etc/UTC")
+ln -sf "/usr/share/zoneinfo/$tz" "$TARGET_ROOT/etc/localtime"
+arch-chroot "$TARGET_ROOT" hwclock --systohc
+
+# user
+arch-chroot "$TARGET_ROOT" useradd -m -G wheel -s /bin/zsh "$username"
+echo "$username:$pass1" | arch-chroot "$TARGET_ROOT" chpasswd
+echo "root:$pass1" | arch-chroot "$TARGET_ROOT" chpasswd
+sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' "$TARGET_ROOT/etc/sudoers"
+
+# services
+arch-chroot "$TARGET_ROOT" systemctl enable NetworkManager
+
+# ---------- 11. cool-arch configs ----------
+for dest in "$TARGET_ROOT/etc/skel" "$TARGET_ROOT/home/$username"; do
+  mkdir -p "$dest/.config/hypr" "$dest/.config/waybar" "$dest/.config/walker"
+done
+cp /usr/share/cool-arch/hypr/hyprland.lua "$TARGET_ROOT/etc/skel/.config/hypr/"
+cp /usr/share/cool-arch/hypr/hyprpaper.conf "$TARGET_ROOT/etc/skel/.config/hypr/"
+cp /usr/share/cool-arch/waybar/config.jsonc "$TARGET_ROOT/etc/skel/.config/waybar/"
+cp /usr/share/cool-arch/waybar/style.css "$TARGET_ROOT/etc/skel/.config/waybar/"
+cp /usr/share/cool-arch/walker/config.toml "$TARGET_ROOT/etc/skel/.config/walker/"
+cp -r "$TARGET_ROOT/etc/skel/." "$TARGET_ROOT/home/$username/" 2>/dev/null || true
+# apply selections to the shipped hyprland.lua
+sed -i "s/{{MONITOR_MODE}}/$MONITOR_MODE/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+sed -i "s/{{KEYBOARD_LAYOUT}}/$KB_LAYOUT/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+sed -i "s/{{CAPS_OPTION}}/$KB_OPTIONS/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+
+# ---------- 12. bootloader (GRUB) ----------
+echo "== Installing GRUB"
+arch-chroot "$TARGET_ROOT" pacman -S --noconfirm grub efibootmgr os-prober
+sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' "$TARGET_ROOT/etc/default/grub"
+grep -q "^GRUB_DISABLE_OS_PROBER=false" "$TARGET_ROOT/etc/default/grub" || \
+  printf '\nGRUB_DISABLE_OS_PROBER=false\n' >> "$TARGET_ROOT/etc/default/grub"
+arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL
+arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg
+
+# ---------- 13. done ----------
+echo
+blue_figlet "Done!"
+echo "Cool Arch Linux installed."
+confirm "Reboot now?" && umount -R "$TARGET_ROOT" && reboot
+echo "Reboot when ready: sudo reboot"

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Power Off
+Comment=Shut down the system
+Exec=cool-poweroff
+Icon=system-shutdown
+Terminal=false
+Categories=System;Shutdown;

@@ -1,0 +1,58 @@
+pkgname=cool-install-scripts
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Cool Arch Linux installer and desktop configs (Hyprland lua, waybar, hyprpaper, walker, poweroff)"
+arch=('any')
+url="https://github.com/coolguy565/coolguy565.github.io"
+license=('MIT')
+depends=(
+  'bash'
+  'hyprland'
+  'waybar'
+  'hyprpaper'
+  'hyprshutdown'
+  'walker'
+  'foot'
+  'mako'
+  'figlet'
+)
+optdepends=(
+  'thunar: default file manager'
+  'firefox: default browser'
+  'networkmanager: networking'
+)
+source=(
+  'cool-install'
+  'cool-poweroff'
+  'PowerOff.desktop'
+  'hyprland.lua'
+  'hyprpaper.conf'
+  'wallpaper.png'
+  'waybar-config.jsonc'
+  'waybar-style.css'
+  'walker-config.toml'
+)
+sha256sums=(
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+)
+
+package() {
+  install -Dm755 cool-install "$pkgdir/usr/bin/cool-install"
+  install -Dm755 cool-poweroff "$pkgdir/usr/bin/cool-poweroff"
+  install -Dm644 PowerOff.desktop "$pkgdir/usr/share/applications/PowerOff.desktop"
+
+  install -Dm644 hyprland.lua "$pkgdir/usr/share/cool-arch/hypr/hyprland.lua"
+  install -Dm644 hyprpaper.conf "$pkgdir/usr/share/cool-arch/hypr/hyprpaper.conf"
+  install -Dm644 wallpaper.png "$pkgdir/usr/share/cool-arch/hypr/wallpaper.png"
+  install -Dm644 waybar-config.jsonc "$pkgdir/usr/share/cool-arch/waybar/config.jsonc"
+  install -Dm644 waybar-style.css "$pkgdir/usr/share/cool-arch/waybar/style.css"
+  install -Dm644 walker-config.toml "$pkgdir/usr/share/cool-arch/walker/config.toml"
+}
