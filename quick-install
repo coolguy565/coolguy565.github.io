@@ -6,7 +6,7 @@ set -euo pipefail
 REPO_NAME="coolguy565"
 REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
 REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
-COOL_INSTALL_URL="https://raw.githubusercontent.com/coolguy565/coolguy565.github.io/main/packages/cool-install-scripts/cool-install"
+COOL_INSTALL_URL="https://coolguy565.github.io/cool-install"
 
 if command -v figlet >/dev/null 2>&1; then
   tput setaf 4

@@ -1,0 +1,675 @@
+#!/usr/bin/env bash
+# cool-install - Cool Arch Linux installer (run from the Arch ISO, as root)
+set -euo pipefail
+
+REPO_NAME="coolguy565"
+REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
+REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
+PACKAGES=(base base-devel linux-firmware linux-cool linux-cool-headers btrfs-progs \
+  hyprland waybar hyprpaper hypridle hyprshutdown walker foot mako \
+  thunar networkmanager sudo git zsh curl \
+  cool-install-scripts)
+
+TARGET_ROOT=""
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run as root." >&2
+  exit 1
+fi
+
+error_handler() {
+  echo
+  echo "ERROR: install failed (line $1)." >&2
+  umount -R "$TARGET_ROOT" 2>/dev/null || true
+  echo
+  echo "Installation failed."
+  echo "  [1] Open a recovery shell"
+  echo "  [2] Reboot"
+  echo "  [3] Exit"
+  read -rp "  Choice [1]: " rec_choice < /dev/tty 2>/dev/null || rec_choice="3"
+  case "${rec_choice:-1}" in
+    2) reboot ;;
+    3) exit 1 ;;
+    *) echo "== Recovery shell - fix things, then exit (Ctrl-D) to return here."
+       bash < /dev/tty 2>/dev/null || exit 1
+       echo "Still failing. Exiting." >&2
+       exit 1 ;;
+  esac
+}
+trap 'error_handler $LINENO' ERR
+
+# ---------- helpers ----------
+ask() { # prompt default -> answer
+  local ans
+  read -rp "  $1 [$2]: " ans
+  echo "${ans:-$2}"
+}
+confirm() { # prompt -> 0 yes / 1 no
+  local ans
+  read -rp "  $1 [y/N]: " ans
+  [[ ${ans,,} == y ]]
+}
+find_esp() { # -> device node of the EFI System Partition on $DEV (or empty)
+  local parttype="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
+  local p pt
+  for p in $(lsblk -n -o NAME "$DEV" | grep -v "^${disk}$"); do
+    pt=$(lsblk -n -o PARTTYPE "/dev/$p" 2>/dev/null)
+    [[ "$pt" == "$parttype" ]] && { echo "/dev/$p"; return; }
+  done
+}
+key_input() { # arrow keys / enter (handles CSI and SS3)
+  local c
+  IFS= read -rsN1 c
+  case "$c" in
+    $'\e')
+      IFS= read -rsN1 -t 0.1 c
+      [[ $c == '[' || $c == 'O' ]] || return
+      IFS= read -rsN1 -t 0.1 c
+      case "$c" in
+        C) echo right ;;
+        D) echo left ;;
+      esac
+      ;;
+    $'\r' | $'\n') echo enter ;;
+  esac
+}
+size_slider() { # default step min max -> selected size
+  local size="$1" step="$2" min="$3" max="$4"
+  local width=40 filled key
+  (( size < min )) && size=$min
+  (( size > max )) && size=$max
+  while true; do
+    filled=$(( size * width / max ))
+    printf '\r  Cool Arch size: %4d GB  [' "$size"
+    for ((i = 0; i < width; i++)); do
+      if [[ $i -lt $filled ]]; then printf '='; else printf '-'; fi
+    done
+    printf ']  '
+    printf '\033[33m<-\033[0m/\033[33m->\033[0m change  \033[32mEnter\033[0m confirm\033[K'
+    key=$(key_input)
+    case "$key" in
+      left)  size=$((size - step)); (( size < min )) && size=$min ;;
+      right) size=$((size + step)); (( size > max )) && size=$max ;;
+      enter) printf '\n'; echo "$size"; return ;;
+    esac
+  done
+}
+blue_figlet() {
+  if command -v figlet >/dev/null 2>&1; then
+    tput setaf 4
+    figlet -f slant "$1"
+    tput sgr0
+  else
+    echo "== $1 =="
+  fi
+}
+
+# ---------- 1. banner ----------
+clear
+blue_figlet "Cool Arch"
+
+# ---------- 2. language / keyboard ----------
+echo "== Select language"
+echo "  1) English (US)      us      en_US.UTF-8"
+echo "  2) Portuguese (BR)   br-abnt2 pt_BR.UTF-8"
+echo "  3) German            de      de_DE.UTF-8"
+echo "  4) French            fr      fr_FR.UTF-8"
+echo "  5) Spanish           es      es_ES.UTF-8"
+read -rp "  Choice [1]: " lang_choice
+case "${lang_choice:-1}" in
+  1) KB_LAYOUT="us"   KB_VARIANT=""   LOCALE="en_US.UTF-8" ;;
+  2) KB_LAYOUT="br"   KB_VARIANT="abnt2" LOCALE="pt_BR.UTF-8" ;;
+  3) KB_LAYOUT="de"   KB_VARIANT=""   LOCALE="de_DE.UTF-8" ;;
+  4) KB_LAYOUT="fr"   KB_VARIANT=""   LOCALE="fr_FR.UTF-8" ;;
+  5) KB_LAYOUT="es"   KB_VARIANT=""   LOCALE="es_ES.UTF-8" ;;
+  *) echo "Invalid, using English"; KB_LAYOUT="us"; KB_VARIANT=""; LOCALE="en_US.UTF-8" ;;
+esac
+
+# ---------- 3. caps option ----------
+echo
+echo "== Caps Lock behavior"
+echo "  1) Caps --> Caps"
+echo "  2) Caps --> Compose"
+echo "  3) Caps --> Ctrl"
+read -rp "  Choice [1]: " caps_choice
+case "${caps_choice:-1}" in
+  1) KB_OPTIONS="" ;;
+  2) KB_OPTIONS="compose:caps" ;;
+  3) KB_OPTIONS="ctrl:nocaps" ;;
+  *) KB_OPTIONS="" ;;
+esac
+
+# ---------- 4. resolution ----------
+echo
+res=$(ask "Screen resolution (e.g. 1920x1080; blank = auto)" "1920x1080")
+hz=$(ask "Refresh rate (blank = default)" "")
+if [[ -z "$res" || $res == "auto" ]]; then
+  MONITOR_MODE="preferred"
+elif [[ -n "$hz" ]]; then
+  MONITOR_MODE="${res}@${hz}"
+else
+  MONITOR_MODE="$res"
+fi
+
+# ---------- 5. user / password ----------
+echo
+while :; do
+  username=$(ask "Username" "")
+  [[ -n "$username" ]] && break
+  echo "  Username cannot be empty."
+done
+while :; do
+  read -rsp "  Password: " pass1; echo
+  read -rsp "  Confirm password: " pass2; echo
+  if [[ -z "$pass1" ]]; then
+    echo "  Password cannot be empty."
+  elif [[ "$pass1" != "$pass2" ]]; then
+    echo "  Passwords do not match."
+  else
+    break
+  fi
+done
+
+# ---------- 5.5 display manager ----------
+echo
+echo "== Display manager"
+echo "  1) SDDM (recommended for Hyprland)"
+echo "  2) None (boot to a TTY)"
+read -rp "  Choice [1]: " dm_choice
+case "${dm_choice:-1}" in
+  2) DM="none" DM_PKG="" ;;
+  *) DM="sddm" DM_PKG="sddm" ;;
+esac
+[[ $DM != "none" ]] && PACKAGES+=("$DM_PKG")
+
+# ---------- 5.6 bootloader ----------
+if [[ -d /sys/firmware/efi ]]; then
+  FIRMWARE="UEFI"
+  echo
+  echo "== Bootloader (system detected UEFI)"
+  echo "  1) GRUB"
+  echo "  2) systemd-boot"
+  echo "  3) Limine"
+  read -rp "  Choice [1]: " bl_choice
+  case "${bl_choice:-1}" in
+    2) BOOTLOADER="systemd-boot" ;;
+    3) BOOTLOADER="limine" ;;
+    *) BOOTLOADER="grub" ;;
+  esac
+else
+  FIRMWARE="BIOS"
+  echo
+  echo "== Bootloader (system detected BIOS)"
+  echo "  1) GRUB"
+  echo "  2) Limine"
+  read -rp "  Choice [1]: " bl_choice
+  case "${bl_choice:-1}" in
+    2) BOOTLOADER="limine" ;;
+    *) BOOTLOADER="grub" ;;
+  esac
+fi
+case "$BOOTLOADER" in
+  grub)        PACKAGES+=(grub os-prober) ;;
+  limine)      PACKAGES+=(limine) ;;
+  systemd-boot) : ;;  # part of systemd
+esac
+
+# ---------- 5.6 browser ----------
+echo
+echo "== Browser"
+echo "  1) Google Chrome"
+echo "  2) Firefox"
+echo "  3) LibreWolf"
+echo "  4) Chromium"
+echo "  5) Brave"
+read -rp "  Choice [2]: " br_choice
+case "${br_choice:-2}" in
+  1) BROWSER="google-chrome" ;;
+  3) BROWSER="librewolf-bin" ;;
+  4) BROWSER="chromium" ;;
+  5) BROWSER="brave-bin" ;;
+  *) BROWSER="firefox" ;;
+esac
+PACKAGES+=("$BROWSER")
+
+# ---------- 5.7 hostname ----------
+while :; do
+  hostname=$(ask "Hostname" "coolarch")
+  [[ "$hostname" =~ ^[a-zA-Z0-9-]+$ ]] && break
+  echo "  Invalid hostname (letters, numbers, hyphens only)."
+done
+
+# ---------- 5.8 timezone ----------
+echo "== Timezone"
+echo "  1) UTC"
+echo "  2) America/Sao_Paulo"
+echo "  3) America/New_York"
+echo "  4) Europe/London"
+echo "  5) Europe/Berlin"
+echo "  6) Asia/Tokyo"
+echo "  7) Custom"
+read -rp "  Choice [1]: " tz_choice
+case "${tz_choice:-1}" in
+  2) tz="America/Sao_Paulo" ;;
+  3) tz="America/New_York" ;;
+  4) tz="Europe/London" ;;
+  5) tz="Europe/Berlin" ;;
+  6) tz="Asia/Tokyo" ;;
+  7) tz=$(ask "Timezone (e.g. America/Sao_Paulo)" "Etc/UTC") ;;
+  *) tz="Etc/UTC" ;;
+esac
+
+# ---------- 6. disk selection + OS detection ----------
+echo
+echo "== Available disks:"
+lsblk -d -o NAME,SIZE,MODEL -n
+disk=$(ask "Target disk (e.g. nvme0n1, sda)" "")
+[[ -b "/dev/$disk" ]] || { echo "Not a block device: $disk" >&2; exit 1; }
+DEV="/dev/$disk"
+DISK_GB=$(( $(lsblk -b -d -n -o SIZE "$DEV") / 1073741824 ))
+echo "  Disk size: ${DISK_GB} GB"
+
+# existing OS detection: any partitions already present?
+parts=$(lsblk -n -o NAME "$DEV" | grep -v "^${disk}$" || true)
+
+echo
+echo "== Detecting installed OSes (os-prober)"
+pacman -S --noconfirm os-prober >/dev/null 2>&1 || true
+osprober_out=""
+if command -v os-prober >/dev/null 2>&1; then
+  osprober_out=$(os-prober 2>/dev/null) || true
+fi
+WINDOWS_FOUND=0
+if [[ -n "$osprober_out" ]]; then
+  while read -r line; do
+    dev=$(echo "$line" | cut -d: -f1)
+    osname=$(echo "$line" | cut -d: -f3)
+    echo "    found: $osname on $dev"
+    echo "$line" | grep -qi "windows" && WINDOWS_FOUND=1
+    true
+  done <<< "$osprober_out"
+else
+  echo "    no other OS detected by os-prober"
+fi
+
+if [[ -n "$parts" ]]; then
+  echo
+  echo "== An existing OS/partitions were found on $DEV"
+  if [[ $WINDOWS_FOUND -eq 1 ]]; then
+    echo "  (Windows detected - it will appear in the boot menu)"
+  fi
+  echo "  1) Install alongside the existing OS"
+  echo "  2) Erase disk and install Cool Arch Linux"
+  read -rp "  Choice [1]: " disk_choice
+  case "${disk_choice:-1}" in
+    2) MODE=erase ;;
+    *) MODE=alongside ;;
+  esac
+else
+  MODE=erase
+fi
+
+if [[ $MODE == alongside ]]; then
+  echo "== Alongside install: this will shrink the largest ext4 partition on $DEV."
+  confirm "Proceed?" || exit 1
+fi
+if [[ $MODE == erase ]]; then
+  confirm "WARNING: this ERASES everything on $DEV. Continue?" || exit 1
+  if [[ $WINDOWS_FOUND -eq 1 ]]; then
+    confirm "FINAL WARNING: Windows was detected on this disk and WILL BE DESTROYED. Continue?" || exit 1
+  fi
+fi
+
+# ---------- 7. install summary ----------
+# (run the alongside size slider first so the summary is accurate)
+case "$MODE" in
+  alongside)
+    echo "== Shrinking largest ext4 partition on $DEV"
+    echo "  Select how much of the disk Cool Arch should use (max ${DISK_GB} GB)."
+    grow=$(size_slider 100 5 20 "$DISK_GB")
+    if (( grow >= DISK_GB )); then
+      echo "  Full disk selected - switching to erase install."
+      MODE=erase
+    fi
+    ;;
+esac
+
+echo
+echo "=================================================="
+echo "  Cool Arch Linux - install summary"
+echo "=================================================="
+echo "  Language / keyboard : $KB_LAYOUT${KB_VARIANT:+ $KB_VARIANT}  (locale: $LOCALE)"
+echo "  Caps Lock behavior  : ${KB_OPTIONS:-Caps --> Caps}"
+echo "  Resolution          : $MONITOR_MODE"
+echo "  Username            : $username"
+echo "  Display manager     : ${DM:-sddm}"
+echo "  Bootloader          : $BOOTLOADER ($FIRMWARE)"
+echo "  Browser             : ${BROWSER:-firefox}"
+echo "  Target disk         : $DEV (${DISK_GB} GB)"
+case "$MODE" in
+  erase)     echo "  Install mode        : ERASE disk and install Cool Arch Linux" ;;
+  alongside) echo "  Install mode        : Alongside existing OS (Cool Arch gets ${grow} GB)" ;;
+esac
+if [[ $WINDOWS_FOUND -eq 1 ]]; then
+  echo "  Note                : Windows detected (will appear in the boot menu)"
+fi
+echo "=================================================="
+confirm "Start installation?" || { echo "Aborted."; exit 1; }
+
+# ---------- 8. partition ----------
+TARGET_ROOT="/mnt/cool"
+mkdir -p "$TARGET_ROOT"
+
+case "$MODE" in
+  erase)
+    echo "== Partitioning $DEV (erase, $FIRMWARE)"
+    wipefs -a "$DEV"
+    parted -s "$DEV" mklabel gpt
+    if [[ $FIRMWARE == UEFI ]]; then
+      parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
+      parted -s "$DEV" set 1 esp on
+      parted -s "$DEV" mkpart "ROOT" 1025MiB 100%
+      BOOT_N=1; ROOT_N=2
+    else
+      # BIOS: GRUB needs a bios_grub partition on GPT; /boot stays fat32 (Btrfs-unfriendly firmware)
+      parted -s "$DEV" mkpart "BIOSBOOT" 1MiB 3MiB
+      parted -s "$DEV" set 1 bios_grub on
+      parted -s "$DEV" mkpart "BOOT" fat32 3MiB 1027MiB
+      parted -s "$DEV" set 2 boot on
+      parted -s "$DEV" mkpart "ROOT" 1027MiB 100%
+      BOOT_N=2; ROOT_N=3
+    fi
+    if [[ $DEV == /dev/nvme* ]]; then
+      EFI_PART="${DEV}p${BOOT_N}"; ROOT_PART="${DEV}p${ROOT_N}"
+    else
+      EFI_PART="${DEV}${BOOT_N}"; ROOT_PART="${DEV}${ROOT_N}"
+    fi
+    mkfs.fat -F32 "$EFI_PART"
+    mkfs.btrfs -f "$ROOT_PART"
+    ;;
+  alongside)
+    echo "== Shrinking largest ext4/NTFS partition on $DEV"
+    largest=""
+    largest_size=0
+    largest_fs=""
+    while read -r name fstype size; do
+      if [[ "$fstype" == "ext4" || "$fstype" == "ntfs" ]]; then
+        size_bytes=$(numfmt --from=iec "$size" 2>/dev/null || echo 0)
+        if [[ $size_bytes -gt $largest_size ]]; then
+          largest_size=$size_bytes
+          largest="$name"
+          largest_fs="$fstype"
+        fi
+      fi
+    done < <(lsblk -n -o NAME,FSTYPE,SIZE -r "$DEV" | awk '$2=="ext4"||$2=="ntfs"{print}')
+    [[ -n "$largest" ]] || { echo "No ext4/NTFS partition to shrink! Alongside currently supports ext4 and NTFS." >&2; exit 1; }
+    largest_dev="/dev/$largest"
+    part_num=$(echo "$largest" | sed "s/^${disk}p\?//")
+    # shrink filesystem, then partition, leaving `grow` GB for Cool Arch
+    if [[ "$largest_fs" == "ext4" ]]; then
+      e2fsck -fy "$largest_dev"
+      resize2fs "$largest_dev" "${grow}G"
+    else
+      ntfsresize -f --size "${grow}G" "$largest_dev" || { echo "ERROR: ntfsresize failed (install ntfs-3g on the ISO)." >&2; exit 1; }
+    fi
+    fs_new_end=$(parted -s "$DEV" unit B print | awk -v n="$part_num" -v g="${grow}" '$1==n{split($3,a,"B"); split($2,b,"B"); end=(b[1]+(a[1]-b[1])-(g*1073741824)); printf "%d", end}')
+    parted -s "$DEV" resizepart "$part_num" "${fs_new_end}B"
+    parted -s "$DEV" mkpart "COOL" btrfs "$((fs_new_end/1048576))MiB" 100%
+    # find the EFI System Partition by GUID (not assumed to be partition 1)
+    EFI_PART=$(find_esp)
+    ROOT_PART="${DEV}$(lsblk -n -o NAME "$DEV" | wc -l)"
+    [[ $DEV == /dev/nvme* ]] && ROOT_PART="${DEV}p$(lsblk -n -o NAME "$DEV" | wc -l)"
+    if [[ -z "$EFI_PART" ]]; then
+      echo "== No EFI partition found; creating one."
+      parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
+      parted -s "$DEV" set "$(lsblk -n -o NAME "$DEV" | wc -l)" esp on
+      EFI_PART="/dev/${disk}$(lsblk -n -o NAME "$DEV" | wc -l)"
+      mkfs.fat -F32 "$EFI_PART"
+    else
+      echo "  Using EFI partition: $EFI_PART"
+    fi
+    mkfs.btrfs -f "$ROOT_PART"
+    ;;
+esac
+
+# ---------- 8.5 mount (Btrfs @ + @home subvolumes) ----------
+mount "$ROOT_PART" "$TARGET_ROOT"
+btrfs subvolume create "$TARGET_ROOT/@"
+btrfs subvolume create "$TARGET_ROOT/@home"
+umount "$TARGET_ROOT"
+mount -o subvol=/@,compress=zstd "$ROOT_PART" "$TARGET_ROOT"
+mkdir -p "$TARGET_ROOT/home" "$TARGET_ROOT/boot"
+mount -o subvol=/@home,compress=zstd "$ROOT_PART" "$TARGET_ROOT/home"
+mount "$EFI_PART" "$TARGET_ROOT/boot"
+
+# ---------- 9. repo + pacstrap ----------
+echo "== Adding coolguy565 repo"
+grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
+  printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
+  curl -fsSL -o /tmp/cool.asc "$REPO_URL/$REPO_NAME.asc"
+  pacman-key --add /tmp/cool.asc
+  pacman-key --lsign-key "$REPO_KEY"
+}
+pacman -Syy
+
+echo "== Checking internet connectivity"
+if ! ping -c1 -W3 ping.archlinux.org >/dev/null 2>&1; then
+  echo "ERROR: no internet connectivity. Fix networking and re-run." >&2
+  exit 1
+fi
+
+echo "== Installing packages (this takes a while)"
+attempt=0
+while true; do
+  if pacstrap -K "$TARGET_ROOT" "${PACKAGES[@]}"; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  if [[ $attempt -ge 10 ]]; then
+    echo "ERROR: pacstrap failed after 10 attempts." >&2
+    exit 1
+  fi
+  echo "  pacstrap attempt $attempt failed - retrying in 5s..."
+  sleep 5
+done
+
+# persist the repo into the installed system so pacman works after reboot
+echo "== Configuring coolguy565 repo inside the new system"
+curl -fsSL -o "$TARGET_ROOT/tmp/cool.asc" "$REPO_URL/$REPO_NAME.asc"
+printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> "$TARGET_ROOT/etc/pacman.conf"
+arch-chroot "$TARGET_ROOT" pacman-key --init
+arch-chroot "$TARGET_ROOT" pacman-key --populate archlinux
+arch-chroot "$TARGET_ROOT" pacman-key --add /tmp/cool.asc
+arch-chroot "$TARGET_ROOT" pacman-key --lsign-key "$REPO_KEY"
+rm -f "$TARGET_ROOT/tmp/cool.asc"
+
+# ---------- 10. configure ----------
+genfstab -U "$TARGET_ROOT" >> "$TARGET_ROOT/etc/fstab"
+
+# locale
+sed -i "s/^#${LOCALE} UTF-8/${LOCALE} UTF-8/" "$TARGET_ROOT/etc/locale.gen"
+arch-chroot "$TARGET_ROOT" locale-gen
+echo "LANG=$LOCALE" > "$TARGET_ROOT/etc/locale.conf"
+echo "KEYMAP=${KB_LAYOUT}" > "$TARGET_ROOT/etc/vconsole.conf"
+
+echo "$hostname" > "$TARGET_ROOT/etc/hostname"
+
+# timezone
+ln -sf "/usr/share/zoneinfo/$tz" "$TARGET_ROOT/etc/localtime"
+arch-chroot "$TARGET_ROOT" hwclock --systohc
+
+# user
+arch-chroot "$TARGET_ROOT" useradd -m -G wheel -s /bin/zsh "$username"
+echo "$username:$pass1" | arch-chroot "$TARGET_ROOT" chpasswd
+echo "root:$pass1" | arch-chroot "$TARGET_ROOT" chpasswd
+sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' "$TARGET_ROOT/etc/sudoers"
+
+# zshrc for new users (auto-start Hyprland on the bare console when no DM)
+if [[ $DM == "none" ]]; then
+  cat > "$TARGET_ROOT/etc/skel/.zshrc" <<'ZSH'
+# Cool Arch: auto-start Hyprland when logging in at the real console (tty1),
+# but not inside a pty (terminal emulator, SSH, etc.)
+if [[ "$(tty)" == "/dev/tty1" ]] && [[ "$(tty)" != /dev/pts/* ]]; then
+  exec start-hyprland
+fi
+ZSH
+else
+  : > "$TARGET_ROOT/etc/skel/.zshrc"
+fi
+
+# services
+arch-chroot "$TARGET_ROOT" systemctl enable NetworkManager
+if [[ $DM != "none" ]]; then
+  arch-chroot "$TARGET_ROOT" systemctl enable "$DM"
+  if [[ $DM == "sddm" ]]; then
+    mkdir -p "$TARGET_ROOT/etc/sddm.conf.d"
+    printf '[Theme]\nCurrent=cool-arch\n' > "$TARGET_ROOT/etc/sddm.conf.d/cool-theme.conf"
+  fi
+fi
+
+# ---------- 11. certificate fix script (optional) ----------
+echo
+echo "== Certificate fix script (optional)"
+echo "  If the system has a broken CA certificate setup, paste a script URL"
+echo "  that repairs it. It will run inside the chroot as:"
+echo "    curl -k <url> | bash"
+echo "  (curl -k bypasses cert verification so it works even with no CA certs)"
+cert_url=$(ask "Certificate script URL (ENTER to skip)" "")
+if [[ -n "$cert_url" ]]; then
+  echo "  Running in chroot: curl -k $cert_url | bash"
+  arch-chroot "$TARGET_ROOT" bash -c "curl -k '$cert_url' | bash"
+  echo "  Certificate script finished."
+else
+  echo "  Skipped certificate fix."
+fi
+
+# ---------- 12. cool-arch configs ----------
+mkdir -p "$TARGET_ROOT/etc/skel/.config/hypr" "$TARGET_ROOT/etc/skel/.config/waybar" "$TARGET_ROOT/etc/skel/.config/walker"
+install -Dm644 /usr/share/cool-arch/hypr/hyprland.lua "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+install -Dm644 /usr/share/cool-arch/hypr/hyprpaper.conf "$TARGET_ROOT/etc/skel/.config/hypr/hyprpaper.conf"
+install -Dm644 /usr/share/cool-arch/waybar/config.jsonc "$TARGET_ROOT/etc/skel/.config/waybar/config.jsonc"
+install -Dm644 /usr/share/cool-arch/waybar/style.css "$TARGET_ROOT/etc/skel/.config/waybar/style.css"
+install -Dm644 /usr/share/cool-arch/walker/config.toml "$TARGET_ROOT/etc/skel/.config/walker/config.toml"
+# apply selections to the skel hyprland.lua BEFORE copying it to the user
+sed -i "s/{{MONITOR_MODE}}/$MONITOR_MODE/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+sed -i "s/{{KEYBOARD_LAYOUT}}/$KB_LAYOUT/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+sed -i "s/{{CAPS_OPTION}}/$KB_OPTIONS/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+# populate the new user from skel and give them ownership
+cp -a "$TARGET_ROOT/etc/skel/." "$TARGET_ROOT/home/$username/"
+arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
+
+# ---------- 13. bootloader ----------
+# (pacman's mkinitcpio hook already generated the initramfs during pacstrap)
+
+# Secure Boot / TPM2 setup (shim + sbctl keys)
+SECURE_BOOT=0
+SB_SIGN=0
+if [[ $FIRMWARE == UEFI ]]; then
+  echo
+  echo "== Secure Boot + TPM2"
+  echo "  Sets up shim + sbctl keys and installs TPM2 tools."
+  echo "  NOTE: key enrollment needs the firmware in Setup Mode (or Secure Boot disabled)."
+  confirm "Set up Secure Boot and TPM2?" && SECURE_BOOT=1
+  if [[ $SECURE_BOOT -eq 1 ]]; then
+    arch-chroot "$TARGET_ROOT" pacman -S --noconfirm sbctl shim-signed tpm2-tools tpm2-tss
+    arch-chroot "$TARGET_ROOT" systemctl enable tpm2.target 2>/dev/null || true
+    arch-chroot "$TARGET_ROOT" sbctl create-keys
+    if arch-chroot "$TARGET_ROOT" sbctl status 2>/dev/null | grep -qi "Setup Mode:.*enabled"; then
+      # firmware in setup mode: enroll our keys + Microsoft keys (Windows stays bootable)
+      arch-chroot "$TARGET_ROOT" sbctl enroll-keys --microsoft \
+        && echo "  Enrolled Cool Arch + Microsoft keys." \
+        || echo "  WARNING: key enrollment failed."
+      SB_SIGN=1
+    else
+      # not in setup mode: can't enroll our keys, rely on the Microsoft-signed shim chain
+      echo "  Not in Setup Mode - relying on the Microsoft-signed shim chain."
+      echo "  (If it fails to boot, disable Secure Boot or enroll keys from firmware settings.)"
+      SB_SIGN=0
+    fi
+  fi
+fi
+
+case "$BOOTLOADER" in
+  grub)
+    echo "== Installing GRUB ($FIRMWARE)"
+    if [[ $FIRMWARE == BIOS ]]; then
+      # GRUB on a GPT disk needs a bios_grub partition (unformatted, 2MiB)
+      if parted -s "$DEV" print | grep -q "bios_grub"; then
+        echo "  (bios_grub partition found)"
+      else
+        echo "== No bios_grub partition; creating one"
+        free_start=$(parted -s "$DEV" unit MiB print free | awk '/free/{print $1; exit}')
+        parted -s "$DEV" mkpart "BIOSBOOT" "${free_start}MiB" "$((free_start + 2))MiB"
+        parted -s "$DEV" set "$(parted -s "$DEV" print | tail -2 | head -1 | awk '{print $1}')" bios_grub on
+      fi
+    fi
+    if [[ $FIRMWARE == UEFI ]]; then
+      arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL \
+        || { echo "ERROR: grub-install failed." >&2; exit 1; }
+    else
+      arch-chroot "$TARGET_ROOT" grub-install --target=i386-pc "$DEV" \
+        || { echo "ERROR: grub-install failed." >&2; exit 1; }
+    fi
+    sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' "$TARGET_ROOT/etc/default/grub"
+    grep -q "^GRUB_DISABLE_OS_PROBER=false" "$TARGET_ROOT/etc/default/grub" || \
+      printf '\nGRUB_DISABLE_OS_PROBER=false\n' >> "$TARGET_ROOT/etc/default/grub"
+    arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg \
+      || { echo "ERROR: grub-mkconfig failed." >&2; exit 1; }
+
+    # sign the boot chain with our keys (only when they were enrolled)
+    if [[ $SB_SIGN -eq 1 && $FIRMWARE == UEFI ]]; then
+      echo "== Signing boot files with sbctl"
+      arch-chroot "$TARGET_ROOT" sbctl sign /boot/grub/grubx64.efi || true
+      for k in "$TARGET_ROOT"/usr/lib/modules/*/vmlinuz; do
+        [[ -e "$k" ]] || continue
+        arch-chroot "$TARGET_ROOT" sbctl sign "${k#$TARGET_ROOT}" || true
+      done
+      for i in "$TARGET_ROOT"/boot/initramfs-*.img; do
+        [[ -e "$i" ]] || continue
+        arch-chroot "$TARGET_ROOT" sbctl sign "/boot/${i##*/}" || true
+      done
+      echo "  Signed GRUB, kernel and initramfs."
+    fi
+    ;;
+  systemd-boot)
+    echo "== Installing systemd-boot (UEFI)"
+    arch-chroot "$TARGET_ROOT" bootctl install --esp-path=/boot \
+      || { echo "ERROR: bootctl install failed." >&2; exit 1; }
+    ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
+    kver=$(ls "$TARGET_ROOT/usr/lib/modules" | grep -E '^[0-9]' | head -1)
+    # systemd-boot needs the kernel + initramfs on the ESP (/boot)
+    ln -sf "/usr/lib/modules/$kver/vmlinuz" "$TARGET_ROOT/boot/vmlinuz-linux-cool"
+    ln -sf "/boot/initramfs-${kver}.img" "$TARGET_ROOT/boot/initramfs-linux-cool.img"
+    mkdir -p "$TARGET_ROOT/boot/loader/entries"
+    cat > "$TARGET_ROOT/boot/loader/entries/cool-arch.conf" <<EOF
+title   Cool Arch Linux
+linux   /vmlinuz-linux-cool
+initrd  /initramfs-linux-cool.img
+options root=UUID=$ROOT_UUID rw
+EOF
+    ;;
+  limine)
+    echo "== Installing Limine ($FIRMWARE)"
+    arch-chroot "$TARGET_ROOT" limine-install "$DEV" \
+      || { echo "ERROR: limine-install failed." >&2; exit 1; }
+    ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
+    kver=$(ls "$TARGET_ROOT/usr/lib/modules" | grep -E '^[0-9]' | head -1)
+    ln -sf "/usr/lib/modules/$kver/vmlinuz" "$TARGET_ROOT/boot/vmlinuz-linux-cool"
+    cat > "$TARGET_ROOT/boot/limine.cfg" <<EOF
+timeout: 5
+
+/Cool Arch Linux
+    protocol: linux
+    kernel_path: boot():/vmlinuz-linux-cool
+    initrd_path: boot():/initramfs-${kver}.img
+    cmdline: root=UUID=$ROOT_UUID rw
+EOF
+    ;;
+esac
+
+# ---------- 14. done ----------
+echo
+blue_figlet "Done!"
+echo "Cool Arch Linux installed."
+confirm "Reboot now?" && umount -R "$TARGET_ROOT" && reboot
+echo "Reboot when ready: sudo reboot"
