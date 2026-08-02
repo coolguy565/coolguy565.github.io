@@ -123,8 +123,10 @@ step() {
 # ---------- 1. banner ----------
 # make sure figlet is available so the banner renders properly
 if ! command -v figlet >/dev/null 2>&1; then
-  echo "Installing figlet..."
-  pacman -Sy --noconfirm figlet >/dev/null 2>&1 || true
+  echo "== Installing figlet for the banner =="
+  if ! pacman -Sy --noconfirm figlet; then
+    echo "  (figlet install failed - using built-in ASCII banner)"
+  fi
 fi
 step "Welcome to Cool Arch"
 
