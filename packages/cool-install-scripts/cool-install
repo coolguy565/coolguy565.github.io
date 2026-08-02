@@ -458,10 +458,8 @@ sed -i "s/{{CAPS_OPTION}}/$KB_OPTIONS/" "$TARGET_ROOT/etc/skel/.config/hypr/hypr
 cp -a "$TARGET_ROOT/etc/skel/." "$TARGET_ROOT/home/$username/"
 arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
 
-# ---------- 13. initramfs + bootloader ----------
-echo "== Generating initramfs"
-arch-chroot "$TARGET_ROOT" mkinitcpio -P || { echo "ERROR: mkinitcpio failed." >&2; exit 1; }
-
+# ---------- 13. bootloader ----------
+# (pacman's mkinitcpio hook already generated the initramfs during pacstrap)
 case "$BOOTLOADER" in
   grub)
     echo "== Installing GRUB ($FIRMWARE)"
