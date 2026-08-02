@@ -160,11 +160,13 @@ echo "  1) Google Chrome"
 echo "  2) Firefox"
 echo "  3) LibreWolf"
 echo "  4) Chromium"
+echo "  5) Brave"
 read -rp "  Choice [2]: " br_choice
 case "${br_choice:-2}" in
   1) BROWSER="google-chrome" ;;
   3) BROWSER="librewolf-bin" ;;
   4) BROWSER="chromium" ;;
+  5) BROWSER="brave-bin" ;;
   *) BROWSER="firefox" ;;
 esac
 PACKAGES+=("$BROWSER")
