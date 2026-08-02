@@ -145,26 +145,22 @@ build_options
 if [[ $MODE == tty ]]; then
   saved_terminal=$(stty -g </dev/tty)
   stty raw -echo </dev/tty
-  trap 'stty "$saved_terminal" </dev/tty 2>/dev/null; printf "\033[?25h"' EXIT INT TERM
+  trap 'stty "$saved_terminal" </dev/tty 2>/dev/null; printf "\033[?25h"; printf "\033[H\033[J"' EXIT INT TERM
 
-  compute_status
-  printf '\033[2J\033[H\033[?25l'
-  banner
-  echo
-  echo "Repository: $REPO"
-  echo "Server: $SERVER"
-  echo "Key: $KEYID"
-  echo
-  echo "Repo status: $status"
-  echo
-  echo "Use arrow keys (or j/k) to move, Enter to select, q to quit:"
-  echo
-
-  MENU_ROWS=${#options[@]}
-
-  print_menu() {
+  render() {
+    compute_status
+    printf '\033[H\033[J'
+    banner
+    echo
+    echo "Repository: $REPO"
+    echo "Server: $SERVER"
+    echo "Key: $KEYID"
+    echo
+    echo "Repo status: $status"
+    echo
+    echo "Use arrow keys (or j/k) to move, Enter to select, q to quit:"
+    echo
     for i in "${!options[@]}"; do
-      printf '\033[2K'
       if [[ $i -eq $current ]]; then
         printf '\033[1;32;7m  > %s  \033[0m\n' "${options[$i]}"
       else
@@ -173,25 +169,18 @@ if [[ $MODE == tty ]]; then
     done
   }
 
-  print_menu
-  printf '\033[%dA' "$MENU_ROWS"   # back to first menu line
-  printf '\033[s'                  # save position
-
   while true; do
-    printf '\033[u'                # restore to first menu line
-    print_menu
-    printf '\033[%dA' "$MENU_ROWS"
-    printf '\033[s'
+    render
     case "$(read_key)" in
       up)    ((current = (current - 1 + ${#options[@]}) % ${#options[@]})) ;;
       down)  ((current = (current + 1) % ${#options[@]})) ;;
       enter) break ;;
-      quit)  printf '\033[?25h\033[%dD' "$MENU_ROWS"; stty "$saved_terminal" </dev/tty; echo "Bye!"; exit 0 ;;
+      quit)  stty "$saved_terminal" </dev/tty; printf '\033[?25h'; echo "Bye!"; exit 0 ;;
     esac
   done
 
   stty "$saved_terminal" </dev/tty
-  printf '\033[?25h\033[%dB' "$MENU_ROWS"
+  printf '\033[?25h'
   echo
 
 elif [[ $MODE == stdin ]]; then
