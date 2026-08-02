@@ -10,7 +10,7 @@ pkgdesc="All-in-one voice and text chat for gamers that's free and secure."
 arch=('x86_64')
 url='https://discordapp.com/'
 license=('custom')
-depends=('gtk3' 'gconf' 'libnotify' 'libxss' 'glibc' 'alsa-lib' 'nspr' 'nss' 'xdg-utils')
+depends=('gtk3' 'libnotify' 'libxss' 'glibc' 'alsa-lib' 'nspr' 'nss' 'xdg-utils')
 optdepends=(
   'libpulse: For pulseaudio support'
   'noto-fonts-emoji: Google font for emoji support.'
