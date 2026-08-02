@@ -66,7 +66,7 @@ find ../packages -maxdepth 2 -name '*.pkg.tar.zst.sig' -exec cp {} . \;
 # drop stale older versions of rebuilt packages (CI release accumulates old builds)
 for pkgdir in ../packages/*/; do
   [[ -f "$pkgdir/PKGBUILD" ]] || continue
-  pnames=$(cd "$pkgdir" && source PKGBUILD 2>/dev/null && echo "${pkgname[@]}" || true)
+  pnames=$(cd "$pkgdir" && set +eu && source PKGBUILD 2>/dev/null && echo "${pkgname[@]}" || true)
   for pn in $pnames; do
     for old in $(ls ${pn}-*.pkg.tar.zst 2>/dev/null | sort -V | head -n -1); do
       echo "removing stale $old"
