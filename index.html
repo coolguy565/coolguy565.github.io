@@ -3,266 +3,131 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>coolguy565 — The Arch Lord</title>
-
+<title>coolguy565</title>
 <style>
+:root{
+  --bg:#0b0f14;
+  --panel:#11161d;
+  --border:#1e2630;
+  --text:#e6edf3;
+  --dim:#8b949e;
+  --acc:#58a6ff;
+  --acc2:#3fb950;
+  --warn:#d29922;
+}
+*{box-sizing:border-box;margin:0;padding:0}
 body{
-  margin:0;
+  background:var(--bg);
+  background-image:radial-gradient(circle at 20% 0%, rgba(88,166,255,0.08), transparent 45%),
+                   radial-gradient(circle at 80% 100%, rgba(63,185,80,0.06), transparent 45%);
+  color:var(--text);
+  font-family:ui-monospace,"Cascadia Code","Fira Code",Menlo,Consolas,monospace;
+  line-height:1.65;
   min-height:100vh;
   display:flex;
   align-items:center;
   justify-content:center;
-  background:
-    radial-gradient(circle at top left, #7a00ff 0%, transparent 40%),
-    radial-gradient(circle at bottom right, #4b0082 0%, transparent 40%),
-    linear-gradient(135deg, #000000, #12001f, #000000);
-  color:#eaeaea;
-  font-family: system-ui, -apple-system, sans-serif;
+  padding:2rem 1rem;
 }
-
-.panel{
-  width:85%;
-  max-width:560px;
-  padding:22px;
-  background:rgba(0,0,0,0.55);
-  border:1px solid rgba(160,80,255,0.18);
-  box-shadow:0 0 25px rgba(140,0,255,0.25);
+.wrap{
+  width:100%;max-width:640px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:2rem;
+  box-shadow:0 8px 40px rgba(0,0,0,0.5);
 }
-
-h1{
-  margin:0 0 6px;
-  font-size:40px;
-
-  background:linear-gradient(90deg,#7a00ff,#fff,#b07cff,#fff,#7a00ff);
-  background-size:300% 100%;
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-
-  animation:shift 8s linear infinite;
-}
-
-@keyframes shift{
-  0%{background-position:0% 50%;}
-  100%{background-position:100% 50%;}
-}
-
-.small{opacity:0.75;margin-bottom:18px;}
-
-ul{
-  margin:0;
-  padding-left:18px;
-}
-
-li{
-  margin:6px 0;
-  opacity:0.9;
-}
-
+.name{font-size:2rem;font-weight:700;color:#fff;letter-spacing:-0.5px}
+.aka{color:var(--dim);margin-top:0.3rem;font-size:0.95rem}
+.aka b{color:var(--acc);font-weight:600}
+.divider{height:1px;background:var(--border);margin:1.4rem 0}
+h2{color:var(--acc);font-size:1rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.6rem}
+h2::before{content:"▍";color:var(--acc2)}
+p{margin-bottom:0.6rem}
+ul{list-style:none}
+li{margin:0.4rem 0;padding-left:1.2rem;position:relative}
+li::before{content:"›";position:absolute;left:0;color:var(--acc2)}
 code{
-  background:rgba(160,80,255,0.15);
-  border:1px solid rgba(160,80,255,0.35);
-  border-radius:4px;
-  padding:2px 6px;
-  font-family:ui-monospace, Menlo, Consolas, monospace;
-  font-size:0.85em;
+  background:#0d1117;border:1px solid var(--border);border-radius:4px;
+  padding:0.1rem 0.35rem;font-size:0.85em;
 }
-
-.cmdbox{
-  margin:14px 0;
-  padding:12px 14px;
-  background:rgba(0,0,0,0.6);
-  border:1px solid rgba(160,80,255,0.25);
-  border-radius:6px;
-  font-family:ui-monospace, Menlo, Consolas, monospace;
-  font-size:0.9em;
-  overflow-x:auto;
-  white-space:nowrap;
+.install{margin:0.8rem 0}
+.cmd{
+  display:flex;align-items:center;gap:0.5rem;
+  background:#0d1117;border:1px solid var(--border);border-radius:6px;
+  padding:0.65rem 0.8rem;margin:0.5rem 0;
+  font-size:0.85rem;overflow-x:auto;white-space:nowrap;
 }
-
-.cmdbox .prompt{color:#b07cff;}
-.cmdbox .txt{color:#eaeaea;}
-
-/* BUTTON AREA */
-.shrine{
-  margin-top:20px;
+.cmd .p{color:var(--acc2)}
+.cmd .t{color:var(--text)}
+.cmd button{
+  margin-left:auto;flex-shrink:0;
+  background:transparent;border:1px solid var(--border);color:var(--dim);
+  border-radius:4px;padding:0.15rem 0.5rem;cursor:pointer;font-size:0.75rem;
 }
-
-.shrine button{
-  margin-bottom:10px;
-  margin-right:8px;
-  padding:8px 12px;
-  background:transparent;
-  border:1px solid rgba(160,80,255,0.4);
-  color:#eaeaea;
-  cursor:pointer;
+.cmd button:hover{color:var(--text);border-color:var(--acc)}
+.links{display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.4rem}
+.links a{
+  color:var(--acc);text-decoration:none;
+  border:1px solid var(--border);border-radius:6px;
+  padding:0.3rem 0.7rem;font-size:0.85rem;
 }
-
-.shrine button:hover{
-  background:rgba(160,80,255,0.2);
-}
-
-.grid{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.grid a{
-  color:#b07cff;
-  text-decoration:none;
-  font-size:0.9em;
-  padding:2px 8px;
-  border:1px solid rgba(160,80,255,0.3);
-  border-radius:4px;
-}
-
-.grid a:hover{
-  background:rgba(160,80,255,0.2);
-}
-
-/* RAIN */
-#rain{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:999;
+.links a:hover{background:rgba(88,166,255,0.1)}
+footer{margin-top:1.6rem;color:var(--dim);font-size:0.8rem;border-top:1px solid var(--border);padding-top:1rem}
+@media (max-width:480px){
+  .wrap{padding:1.4rem}
+  .name{font-size:1.6rem}
 }
 </style>
 </head>
-
 <body>
+<div class="wrap">
+  <div class="name">coolguy565</div>
+  <div class="aka">aka <b>zeq1568</b> · <b>zulo</b> · <b>The Arch Lord</b> · <b>Subspace</b></div>
 
-<div class="panel">
+  <div class="divider"></div>
 
-  <h1>coolguy565</h1>
-  <div class="small">aka zeq1568 · zulo · The Arch Lord · Subspace</div>
+  <h2>about</h2>
+  <p>I mess around with systems — Arch Linux, kernels, and the general dark arts of making computers do what I want.</p>
+  <ul>
+    <li>maintainer of <code>linux-cool</code>, a custom Zen-based kernel with NTFSplus built in</li>
+    <li>runs a signed pacman repo on GitHub Releases</li>
+    <li>Hyprland / Wayland, terminal-everything</li>
+  </ul>
 
-  <div>
-    <div class="small">about</div>
-    <ul>
-      <li>arch linux enjoyer, custom kernel builder</li>
-      <li>maintainer of <b>linux-cool</b> (zen-based, ntfsplus baked in)</li>
-      <li>runs a signed <b>pacman repo</b> on github releases</li>
-      <li>hyprland / wayland, terminal everything</li>
-    </ul>
+  <div class="divider"></div>
+
+  <h2>install my repo</h2>
+  <p class="install">One command adds the repo, trusts the signing key, and opens an interactive manager:</p>
+  <div class="cmd"><span class="p">$</span><span class="t">sudo bash &lt;(curl -sL https://zulo.alwaysdata.net/installrepo)</span><button onclick="copyCmd(this)" title="copy">copy</button></div>
+  <p class="install">or with a pipe:</p>
+  <div class="cmd"><span class="p">$</span><span class="t">curl -fsSL https://zulo.alwaysdata.net/installrepo | sudo bash</span><button onclick="copyCmd(this)" title="copy">copy</button></div>
+  <p class="install">then just:</p>
+  <div class="cmd"><span class="p">$</span><span class="t">sudo pacman -S google-chrome yay linux-cool</span><button onclick="copyCmd(this)" title="copy">copy</button></div>
+
+  <div class="divider"></div>
+
+  <h2>links</h2>
+  <div class="links">
+    <a href="https://github.com/coolguy565">github</a>
+    <a href="https://zulo.neocities.org">neocities</a>
+    <a href="https://archlinux.org">arch linux</a>
+    <a href="mailto:shower.headedyt@gmail.com">email</a>
   </div>
 
-  <div>
-    <div class="small">install my repo</div>
-    <div class="cmdbox"><span class="prompt">$</span> <span class="txt">sudo bash &lt;(curl -sL https://zulo.alwaysdata.net/installrepo)</span></div>
-    <div class="small" style="margin:4px 0">or</div>
-    <div class="cmdbox"><span class="prompt">$</span> <span class="txt">curl -fsSL https://zulo.alwaysdata.net/installrepo | sudo bash</span></div>
-    <div class="small" style="margin:4px 0">then</div>
-    <div class="cmdbox"><span class="prompt">$</span> <span class="txt">sudo pacman -S google-chrome yay linux-cool</span></div>
-  </div>
-
-  <!-- SHRINE -->
-  <div class="shrine">
-
-    <button onclick="toggleRain()">MATRIX</button>
-
-    <div class="grid">
-      <a href="https://github.com/coolguy565">github</a>
-      <a href="https://zulo.neocities.org">neocities</a>
-      <a href="https://archlinux.org">arch linux</a>
-      <a href="mailto:shower.headedyt@gmail.com">email</a>
-    </div>
-
-  </div>
-
+  <footer>
+    coolguy565 © <span id="year"></span> — sudo pacman -Syu &amp;&amp; reboot
+  </footer>
 </div>
 
-<canvas id="rain"></canvas>
-
 <script>
-const canvas = document.getElementById("rain");
-const ctx = canvas.getContext("2d");
-const rand = (min, max)=>Math.floor(Math.random() * max) + min;
-
-let active = false;
-let drops = [];
-let w, h;
-
-function resize(){
-  w = canvas.width = window.innerWidth;
-  h = canvas.height = window.innerHeight;
+function copyCmd(btn){
+  const t = btn.parentElement.querySelector('.t').textContent;
+  navigator.clipboard.writeText(t);
+  btn.textContent = 'copied!';
+  setTimeout(()=>{btn.textContent='copy'}, 1200);
 }
-window.addEventListener("resize", resize);
-resize();
-
-const pool =
-  "0123456789" +
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-  "!@#$%^&*()_+-=[]{}|;:,.<>?" +
-  "アイウエオカキクケコサシスセソタチツテトナニヌネノ" +
-  "ハヒフヘホマミムメモヤユヨラリルレロワヲン" +
-  "ァィゥェォャュョッン";
-
-function createDrops(){
-  drops = [];
-  for(let i=0;i<150;i++){
-    drops.push({
-      x: Math.random()*w,
-      y: Math.random()*h,
-      v: 2 + Math.random()*5
-    });
-  }
-}
-
-function getChar() {
-  const r = Math.random();
-
-  // Latin numbers + symbols layer
-  if (r < 0.35) {
-    const pool = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    return pool[rand(0, pool.length - 1)];
-  }
-
-  if (r < 0.6) {
-    const symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
-    return symbols[rand(0, symbols.length - 1)];
-  }
-
-  // CJK layer
-  return String.fromCharCode(0x4e00 + rand(0, 90));
-}
-
-function draw(){
-  if(!active) return;
-
-  ctx.fillStyle = "rgba(0,0,0,0.08)";
-  ctx.fillRect(0,0,w,h);
-
-  ctx.fillStyle = "#b07cff";
-  ctx.font = "18px monospace";
-
-  for(let d of drops){
-    const text = getChar();
-    ctx.fillText(text, d.x, d.y);
-
-    d.y += d.v;
-    if(d.y > h){
-      d.y = 0;
-      d.x = Math.random()*w;
-    }
-  }
-
-  requestAnimationFrame(draw);
-}
-
-function toggleRain(){
-  active = !active;
-  if(active){
-    createDrops();
-    draw();
-  } else {
-    ctx.clearRect(0,0,w,h);
-  }
-}
+document.getElementById('year').textContent = new Date().getFullYear();
 </script>
-
 </body>
 </html>
