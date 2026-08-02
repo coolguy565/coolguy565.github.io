@@ -14,6 +14,7 @@ permissions:
 
 env:
   REPO_NAME: myrepo
+  GH_REPO: coolguy565/coolguy565.github.io
   PACKAGER_NAME: ${{ secrets.PACKAGER_NAME }}
   PACKAGER_EMAIL: ${{ secrets.PACKAGER_EMAIL }}
   GPGKEY: ${{ secrets.GPGKEY }}
