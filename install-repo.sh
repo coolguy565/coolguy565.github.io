@@ -83,23 +83,31 @@ uninstall_repo() {
   echo "==> [$REPO] repo removed. Installed packages are kept."
 }
 
+# state-machine key reader: reads one byte at a time with short timeouts,
+# handling both CSI (\e[A) and SS3 (\eOA) arrow sequences.
 read_key() {
-  # arrow keys / enter from the real terminal, not stdin (script may be piped)
-  local key seq
-  IFS= read -rsn1 key </dev/tty
-  if [[ $key == $'\e' ]]; then
-    IFS= read -rsn2 seq </dev/tty 2>/dev/null || seq=''
-    case "$seq" in
-      '[A') echo up ;;
-      '[B') echo down ;;
-      '[C') echo right ;;
-      '[D') echo left ;;
-    esac
-  elif [[ $key == $'\r' || $key == $'\n' ]]; then
-    echo enter
-  else
-    echo "$key"
-  fi
+  local c
+  IFS= read -rsN1 c </dev/tty || { echo eof; return; }
+  case "$c" in
+    $'\e')
+      IFS= read -rsN1 -t 0.1 c </dev/tty || { echo esc; return; }
+      if [[ $c == '[' || $c == 'O' ]]; then
+        IFS= read -rsN1 -t 0.1 c </dev/tty || { echo esc; return; }
+        case "$c" in
+          A) echo up ;;
+          B) echo down ;;
+          C) echo right ;;
+          D) echo left ;;
+          *) echo esc ;;
+        esac
+      else
+        echo esc
+      fi
+      ;;
+    $'\r' | $'\n') echo enter ;;
+    q | Q) echo quit ;;
+    *) echo "$c" ;;
+  esac
 }
 
 build_options() {
@@ -113,9 +121,16 @@ build_options() {
   options+=("Quit")
 }
 
+compute_status() {
+  status="NOT INSTALLED"
+  repo_installed && status="INSTALLED"
+  repo_outdated && status+=" (update available)"
+  true
+}
+
 # interaction mode: tty -> arrow-key TUI; stdin -> plain menu; none -> auto-install
 MODE=none
-{ stty -g </dev/tty; } 2>/dev/null && MODE=tty
+{ stty -g </dev/tty >/dev/null; } 2>/dev/null && MODE=tty
 [[ $MODE == none && -t 0 ]] && MODE=stdin
 
 if [[ $MODE == none ]]; then
@@ -125,48 +140,64 @@ if [[ $MODE == none ]]; then
 fi
 
 current=0
+build_options
 
 if [[ $MODE == tty ]]; then
   saved_terminal=$(stty -g </dev/tty)
   stty raw -echo </dev/tty
-  trap 'stty "$saved_terminal" </dev/tty 2>/dev/null' EXIT INT TERM
-fi
+  trap 'stty "$saved_terminal" </dev/tty 2>/dev/null; printf "\033[?25h"' EXIT INT TERM
 
-while true; do
-  installed=0; repo_installed && installed=1
-  outdated=0; [[ $installed -eq 1 ]] && repo_outdated && outdated=1
-  status="NOT INSTALLED"
-  [[ $installed -eq 1 ]] && status="INSTALLED"
-  [[ $outdated -eq 1 ]] && status+=" (update available)"
+  compute_status
+  printf '\033[2J\033[H\033[?25l'
+  banner
+  echo
+  echo "Repository: $REPO"
+  echo "Server: $SERVER"
+  echo "Key: $KEYID"
+  echo
+  echo "Repo status: $status"
+  echo
+  echo "Use arrow keys (or j/k) to move, Enter to select, q to quit:"
+  echo
 
-  build_options
-  [[ $current -ge ${#options[@]} ]] && current=$(( ${#options[@]} - 1 ))
+  MENU_ROWS=${#options[@]}
 
-  if [[ $MODE == tty ]]; then
-    printf '\033[2J\033[H'
-    banner
-    echo
-    echo "Repository: $REPO"
-    echo "Server: $SERVER"
-    echo "Key: $KEYID"
-    echo
-    echo "Repo status: $status"
-    echo
-    echo "Use arrow keys to move, Enter to select:"
+  print_menu() {
     for i in "${!options[@]}"; do
+      printf '\033[2K'
       if [[ $i -eq $current ]]; then
         printf '\033[1;32;7m  > %s  \033[0m\n' "${options[$i]}"
       else
         printf '    %s\n' "${options[$i]}"
       fi
     done
+  }
+
+  print_menu
+  printf '\033[%dA' "$MENU_ROWS"   # back to first menu line
+  printf '\033[s'                  # save position
+
+  while true; do
+    printf '\033[u'                # restore to first menu line
+    print_menu
+    printf '\033[%dA' "$MENU_ROWS"
+    printf '\033[s'
     case "$(read_key)" in
       up)    ((current = (current - 1 + ${#options[@]}) % ${#options[@]})) ;;
       down)  ((current = (current + 1) % ${#options[@]})) ;;
       enter) break ;;
-      q)     stty "$saved_terminal" </dev/tty; exit 0 ;;
+      quit)  printf '\033[?25h\033[%dD' "$MENU_ROWS"; stty "$saved_terminal" </dev/tty; echo "Bye!"; exit 0 ;;
     esac
-  else
+  done
+
+  stty "$saved_terminal" </dev/tty
+  printf '\033[?25h\033[%dB' "$MENU_ROWS"
+  echo
+
+elif [[ $MODE == stdin ]]; then
+  while true; do
+    compute_status
+    build_options
     echo
     echo "Repo status: $status"
     echo
@@ -180,10 +211,8 @@ while true; do
       break
     fi
     echo "Invalid choice."
-  fi
-done
-
-[[ $MODE == tty ]] && stty "$saved_terminal" </dev/tty
+  done
+fi
 
 case "${options[$current]}" in
   "Install repo")   install_repo ;;
