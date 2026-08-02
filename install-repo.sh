@@ -113,36 +113,24 @@ build_options() {
   options+=("Quit")
 }
 
-render() {
-  printf '\033[2J\033[H'
-  banner
-  echo
-  echo "Repository: $REPO"
-  echo "Server: $SERVER"
-  echo "Key: $KEYID"
-  echo
-  echo "Repo status: $status"
-  echo
-  echo "Use arrow keys to move, Enter to select:"
-  for i in "${!options[@]}"; do
-    if [[ $i -eq $current ]]; then
-      printf '\033[1;32;7m  > %s  \033[0m\n' "${options[$i]}"
-    else
-      printf '    %s\n' "${options[$i]}"
-    fi
-  done
-}
+# interaction mode: tty -> arrow-key TUI; stdin -> plain menu; none -> auto-install
+MODE=none
+{ stty -g </dev/tty; } 2>/dev/null && MODE=tty
+[[ $MODE == none && -t 0 ]] && MODE=stdin
 
-status=""
+if [[ $MODE == none ]]; then
+  echo "No interactive terminal detected - installing repo automatically."
+  install_repo
+  exit 0
+fi
+
 current=0
 
-# enter raw mode, restore on exit
-saved_terminal=$(stty -g </dev/tty 2>/dev/null) || {
-  echo "Error: no interactive terminal available (/dev/tty). Run this from a real terminal." >&2
-  exit 1
-}
-stty raw -echo </dev/tty
-trap 'stty "$saved_terminal" </dev/tty 2>/dev/null' EXIT INT TERM
+if [[ $MODE == tty ]]; then
+  saved_terminal=$(stty -g </dev/tty)
+  stty raw -echo </dev/tty
+  trap 'stty "$saved_terminal" </dev/tty 2>/dev/null' EXIT INT TERM
+fi
 
 while true; do
   installed=0; repo_installed && installed=1
@@ -154,16 +142,48 @@ while true; do
   build_options
   [[ $current -ge ${#options[@]} ]] && current=$(( ${#options[@]} - 1 ))
 
-  render
-  case "$(read_key)" in
-    up)    ((current = (current - 1 + ${#options[@]}) % ${#options[@]})) ;;
-    down)  ((current = (current + 1) % ${#options[@]})) ;;
-    enter) break ;;
-    q)     stty "$saved_terminal" </dev/tty; exit 0 ;;
-  esac
+  if [[ $MODE == tty ]]; then
+    printf '\033[2J\033[H'
+    banner
+    echo
+    echo "Repository: $REPO"
+    echo "Server: $SERVER"
+    echo "Key: $KEYID"
+    echo
+    echo "Repo status: $status"
+    echo
+    echo "Use arrow keys to move, Enter to select:"
+    for i in "${!options[@]}"; do
+      if [[ $i -eq $current ]]; then
+        printf '\033[1;32;7m  > %s  \033[0m\n' "${options[$i]}"
+      else
+        printf '    %s\n' "${options[$i]}"
+      fi
+    done
+    case "$(read_key)" in
+      up)    ((current = (current - 1 + ${#options[@]}) % ${#options[@]})) ;;
+      down)  ((current = (current + 1) % ${#options[@]})) ;;
+      enter) break ;;
+      q)     stty "$saved_terminal" </dev/tty; exit 0 ;;
+    esac
+  else
+    echo
+    echo "Repo status: $status"
+    echo
+    for i in "${!options[@]}"; do
+      echo "  $((i + 1))) ${options[$i]}"
+    done
+    printf "Choice: "
+    read -r n || exit 0
+    if [[ $n =~ ^[0-9]+$ ]] && (( n >= 1 && n <= ${#options[@]} )); then
+      current=$((n - 1))
+      break
+    fi
+    echo "Invalid choice."
+  fi
 done
 
-stty "$saved_terminal" </dev/tty
+[[ $MODE == tty ]] && stty "$saved_terminal" </dev/tty
 
 case "${options[$current]}" in
   "Install repo")   install_repo ;;
