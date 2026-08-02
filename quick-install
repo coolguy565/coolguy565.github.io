@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Cool Arch quick install - adds the coolguy565 repo, then runs cool-install.
+# Usage: curl -fsSL https://coolguy565.github.io/quick-install | bash
+set -euo pipefail
+
+REPO_NAME="coolguy565"
+REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
+REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
+COOL_INSTALL_URL="https://raw.githubusercontent.com/coolguy565/coolguy565.github.io/main/packages/cool-install-scripts/cool-install"
+
+if command -v figlet >/dev/null 2>&1; then
+  tput setaf 4
+  figlet -f slant "Cool Arch"
+  tput sgr0
+else
+  echo "== Cool Arch =="
+fi
+
+# build the modified cool-install: repo setup first, then the real script
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+
+{
+  cat <<'REPO_SETUP'
+set -euo pipefail
+REPO_NAME="coolguy565"
+REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
+REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
+if [[ $EUID -ne 0 ]]; then
+  echo "Run as root." >&2
+  exit 1
+fi
+echo "==> Adding $REPO_NAME repo"
+grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
+  printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
+  curl -fsSL -o /tmp/cool.asc "$REPO_URL/$REPO_NAME.asc"
+  pacman-key --add /tmp/cool.asc
+  pacman-key --lsign-key "$REPO_KEY"
+}
+pacman -Syy
+echo "==> coolguy565 repo ready"
+REPO_SETUP
+
+  curl -fsSL "$COOL_INSTALL_URL"
+} > "$tmp"
+
+# run it with stdin from the terminal so interactive prompts work even when piped
+exec sudo bash "$tmp" < /dev/tty
