@@ -303,16 +303,27 @@ mkdir -p "$TARGET_ROOT"
 
 case "$MODE" in
   erase)
-    echo "== Partitioning $DEV (erase)"
+    echo "== Partitioning $DEV (erase, $FIRMWARE)"
     wipefs -a "$DEV"
     parted -s "$DEV" mklabel gpt
-    parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
-    parted -s "$DEV" set 1 esp on
-    parted -s "$DEV" mkpart "ROOT" ext4 1025MiB 100%
-    if [[ $DEV == /dev/nvme* ]]; then
-      EFI_PART="${DEV}p1"; ROOT_PART="${DEV}p2"
+    if [[ $FIRMWARE == UEFI ]]; then
+      parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
+      parted -s "$DEV" set 1 esp on
+      parted -s "$DEV" mkpart "ROOT" 1025MiB 100%
+      BOOT_N=1; ROOT_N=2
     else
-      EFI_PART="${DEV}1"; ROOT_PART="${DEV}2"
+      # BIOS: GRUB needs a bios_grub partition on GPT; /boot stays fat32 (Btrfs-unfriendly firmware)
+      parted -s "$DEV" mkpart "BIOSBOOT" 1MiB 3MiB
+      parted -s "$DEV" set 1 bios_grub on
+      parted -s "$DEV" mkpart "BOOT" fat32 3MiB 1027MiB
+      parted -s "$DEV" set 2 boot on
+      parted -s "$DEV" mkpart "ROOT" 1027MiB 100%
+      BOOT_N=2; ROOT_N=3
+    fi
+    if [[ $DEV == /dev/nvme* ]]; then
+      EFI_PART="${DEV}p${BOOT_N}"; ROOT_PART="${DEV}p${ROOT_N}"
+    else
+      EFI_PART="${DEV}${BOOT_N}"; ROOT_PART="${DEV}${ROOT_N}"
     fi
     mkfs.fat -F32 "$EFI_PART"
     mkfs.btrfs -f "$ROOT_PART"
@@ -468,6 +479,17 @@ arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
 case "$BOOTLOADER" in
   grub)
     echo "== Installing GRUB ($FIRMWARE)"
+    if [[ $FIRMWARE == BIOS ]]; then
+      # GRUB on a GPT disk needs a bios_grub partition (unformatted, 2MiB)
+      if parted -s "$DEV" print | grep -q "bios_grub"; then
+        echo "  (bios_grub partition found)"
+      else
+        echo "== No bios_grub partition; creating one"
+        free_start=$(parted -s "$DEV" unit MiB print free | awk '/free/{print $1; exit}')
+        parted -s "$DEV" mkpart "BIOSBOOT" "${free_start}MiB" "$((free_start + 2))MiB"
+        parted -s "$DEV" set "$(parted -s "$DEV" print | tail -2 | head -1 | awk '{print $1}')" bios_grub on
+      fi
+    fi
     if [[ $FIRMWARE == UEFI ]]; then
       arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL \
         || { echo "ERROR: grub-install failed." >&2; exit 1; }
