@@ -199,26 +199,9 @@ if [[ $MODE == erase ]]; then
   fi
 fi
 
-# ---------- 7. partition ----------
-TARGET_ROOT="/mnt/cool"
-mkdir -p "$TARGET_ROOT"
-
+# ---------- 7. install summary ----------
+# (run the alongside size slider first so the summary is accurate)
 case "$MODE" in
-  erase)
-    echo "== Partitioning $DEV (erase)"
-    wipefs -a "$DEV"
-    parted -s "$DEV" mklabel gpt
-    parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
-    parted -s "$DEV" set 1 esp on
-    parted -s "$DEV" mkpart "ROOT" ext4 1025MiB 100%
-    if [[ $DEV == /dev/nvme* ]]; then
-      EFI_PART="${DEV}p1"; ROOT_PART="${DEV}p2"
-    else
-      EFI_PART="${DEV}1"; ROOT_PART="${DEV}2"
-    fi
-    mkfs.fat -F32 "$EFI_PART"
-    mkfs.ext4 "$ROOT_PART"
-    ;;
   alongside)
     echo "== Shrinking largest ext4 partition on $DEV"
     echo "  Select how much of the disk Cool Arch should use (max ${DISK_GB} GB)."
@@ -229,6 +212,29 @@ case "$MODE" in
     fi
     ;;
 esac
+
+echo
+echo "=================================================="
+echo "  Cool Arch Linux - install summary"
+echo "=================================================="
+echo "  Language / keyboard : $KB_LAYOUT${KB_VARIANT:+ $KB_VARIANT}  (locale: $LOCALE)"
+echo "  Caps Lock behavior  : ${KB_OPTIONS:-Caps --> Caps}"
+echo "  Resolution          : $MONITOR_MODE"
+echo "  Username            : $username"
+echo "  Target disk         : $DEV (${DISK_GB} GB)"
+case "$MODE" in
+  erase)     echo "  Install mode        : ERASE disk and install Cool Arch Linux" ;;
+  alongside) echo "  Install mode        : Alongside existing OS (Cool Arch gets ${grow} GB)" ;;
+esac
+if [[ $WINDOWS_FOUND -eq 1 ]]; then
+  echo "  Note                : Windows detected (will appear in the boot menu)"
+fi
+echo "=================================================="
+confirm "Start installation?" || { echo "Aborted."; exit 1; }
+
+# ---------- 8. partition ----------
+TARGET_ROOT="/mnt/cool"
+mkdir -p "$TARGET_ROOT"
 
 case "$MODE" in
   erase)
