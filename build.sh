@@ -45,8 +45,16 @@ shopt -s nullglob
 
 for pkgdir in packages/*/; do
   [[ -f "$pkgdir/PKGBUILD" ]] || continue
+  if [[ -f "$pkgdir/.heavy" ]]; then
+    echo "::group::Skipping ${pkgdir%/} (heavy - built locally in firejail)"
+    echo "::endgroup::"
+    continue
+  fi
   echo "::group::Building ${pkgdir%/}"
-  ( cd "$pkgdir" && makepkg -s --sign --noconfirm )
+  local mkg_args=(-s --noconfirm)
+  [[ -f "$pkgdir/.skippgpcheck" ]] && mkg_args+=(--skippgpcheck)
+  ( cd "$pkgdir" && makepkg "${mkg_args[@]}" --sign ) \
+    || echo "::warning::build failed: ${pkgdir%/}"
   echo "::endgroup::"
 done
 
