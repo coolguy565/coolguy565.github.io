@@ -270,7 +270,7 @@ DISK_GB=$(( $(lsblk -b -d -n -o SIZE "$DEV") / 1073741824 ))
 echo "  Disk size: ${DISK_GB} GB"
 
 # existing OS detection: any partitions already present?
-parts=$(lsblk -n -o NAME "$DEV" | grep -v "^${disk}$")
+parts=$(lsblk -n -o NAME "$DEV" | grep -v "^${disk}$" || true)
 
 echo
 echo "== Detecting installed OSes (os-prober)"
