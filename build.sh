@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-REPO_NAME="${REPO_NAME:-myrepo}"
+REPO_NAME="${REPO_NAME:-coolguy565}"
 OUT_DIR="${OUT_DIR:-repo}"
 GPG_KEY_B64="${GPG_KEY_B64:-}"
 GPG_PASSPHRASE="${GPG_PASSPHRASE:-}"

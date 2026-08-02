@@ -47,16 +47,16 @@ Push, wait for the build, done.
 
 1. Add the repo to `/etc/pacman.conf` (name must match `REPO_NAME`):
    ```
-   [myrepo]
+   [coolguy565]
    SigLevel = Required DatabaseOptional
-   Server = https://github.com/coolguy565/coolguy565.github.io/releases/download/repo
+   Server = https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565
    ```
 
 2. Import and trust the signing key:
    ```sh
    sudo pacman-key --init
-   curl -L -o myrepo.asc https://github.com/coolguy565/coolguy565.github.io/releases/download/repo/myrepo.asc
-   sudo pacman-key --add myrepo.asc
+   curl -L -o coolguy565.asc https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565/coolguy565.asc
+   sudo pacman-key --add coolguy565.asc
    sudo pacman-key --lsign-key E36138CC5F015492A1D620581C4F28ACC1A18345
    ```
 
