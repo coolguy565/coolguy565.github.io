@@ -100,7 +100,16 @@ blue_figlet() {
     figlet -f slant "$1"
     tput sgr0
   else
-    echo "== $1 =="
+    tput setaf 4
+    cat <<'BANNER'
+   ______            __   ___              __  
+  / ____/___  ____  / /  /   |  __________/ /_ 
+ / /   / __ \/ __ \/ /  / /| | / ___/ ___/ __ \
+/ /___/ /_/ / /_/ / /  / ___ |/ /  / /__/ / / /
+\____/\____/\____/_/  /_/  |_/_/   \___/_/ /_/ 
+                                               
+BANNER
+    tput sgr0
   fi
 }
 
@@ -113,7 +122,7 @@ step() {
 # make sure figlet is available so the banner renders properly
 if ! command -v figlet >/dev/null 2>&1; then
   echo "Installing figlet..."
-  pacman -S --noconfirm figlet >/dev/null 2>&1 || true
+  pacman -Sy --noconfirm figlet >/dev/null 2>&1 || true
 fi
 clear
 blue_figlet "Cool Arch"
