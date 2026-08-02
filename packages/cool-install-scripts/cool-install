@@ -354,7 +354,7 @@ if [[ $DM == "none" ]]; then
 # Cool Arch: auto-start Hyprland when logging in at the real console (tty1),
 # but not inside a pty (terminal emulator, SSH, etc.)
 if [[ "$(tty)" == "/dev/tty1" ]] && [[ "$(tty)" != /dev/pts/* ]]; then
-  exec Hyprland
+  exec start-hyprland
 fi
 ZSH
 else
