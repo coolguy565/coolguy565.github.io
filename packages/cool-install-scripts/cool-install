@@ -143,15 +143,45 @@ done
 echo
 echo "== Display manager"
 echo "  1) SDDM (recommended for Hyprland)"
-echo "  2) GDM"
-echo "  3) None (boot to a TTY)"
+echo "  2) None (boot to a TTY)"
 read -rp "  Choice [1]: " dm_choice
 case "${dm_choice:-1}" in
-  2) DM="gdm"  DM_PKG="gdm" ;;
-  3) DM="none" DM_PKG="" ;;
+  2) DM="none" DM_PKG="" ;;
   *) DM="sddm" DM_PKG="sddm" ;;
 esac
 [[ $DM != "none" ]] && PACKAGES+=("$DM_PKG")
+
+# ---------- 5.6 bootloader ----------
+if [[ -d /sys/firmware/efi ]]; then
+  FIRMWARE="UEFI"
+  echo
+  echo "== Bootloader (system detected UEFI)"
+  echo "  1) GRUB"
+  echo "  2) systemd-boot"
+  echo "  3) Limine"
+  read -rp "  Choice [1]: " bl_choice
+  case "${bl_choice:-1}" in
+    2) BOOTLOADER="systemd-boot" ;;
+    3) BOOTLOADER="limine" ;;
+    *) BOOTLOADER="grub" ;;
+  esac
+else
+  FIRMWARE="BIOS"
+  echo
+  echo "== Bootloader (system detected BIOS)"
+  echo "  1) GRUB"
+  echo "  2) Limine"
+  read -rp "  Choice [1]: " bl_choice
+  case "${bl_choice:-1}" in
+    2) BOOTLOADER="limine" ;;
+    *) BOOTLOADER="grub" ;;
+  esac
+fi
+case "$BOOTLOADER" in
+  grub)        PACKAGES+=(grub os-prober) ;;
+  limine)      PACKAGES+=(limine) ;;
+  systemd-boot) : ;;  # part of systemd
+esac
 
 # ---------- 5.6 browser ----------
 echo
@@ -254,6 +284,7 @@ echo "  Caps Lock behavior  : ${KB_OPTIONS:-Caps --> Caps}"
 echo "  Resolution          : $MONITOR_MODE"
 echo "  Username            : $username"
 echo "  Display manager     : ${DM:-sddm}"
+echo "  Bootloader          : $BOOTLOADER ($FIRMWARE)"
 echo "  Browser             : ${BROWSER:-firefox}"
 echo "  Target disk         : $DEV (${DISK_GB} GB)"
 case "$MODE" in
@@ -325,7 +356,7 @@ case "$MODE" in
     ;;
 esac
 
-# ---------- 8. mount ----------
+# ---------- 8.5 mount ----------
 mount "$ROOT_PART" "$TARGET_ROOT"
 mkdir -p "$TARGET_ROOT/boot"
 mount "$EFI_PART" "$TARGET_ROOT/boot"
@@ -427,16 +458,61 @@ sed -i "s/{{CAPS_OPTION}}/$KB_OPTIONS/" "$TARGET_ROOT/etc/skel/.config/hypr/hypr
 cp -a "$TARGET_ROOT/etc/skel/." "$TARGET_ROOT/home/$username/"
 arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
 
-# ---------- 13. bootloader (GRUB) ----------
-echo "== Installing GRUB"
-arch-chroot "$TARGET_ROOT" pacman -S --noconfirm grub efibootmgr os-prober
-sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' "$TARGET_ROOT/etc/default/grub"
-grep -q "^GRUB_DISABLE_OS_PROBER=false" "$TARGET_ROOT/etc/default/grub" || \
-  printf '\nGRUB_DISABLE_OS_PROBER=false\n' >> "$TARGET_ROOT/etc/default/grub"
-arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL \
-  || { echo "ERROR: grub-install failed." >&2; exit 1; }
-arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg \
-  || { echo "ERROR: grub-mkconfig failed." >&2; exit 1; }
+# ---------- 13. initramfs + bootloader ----------
+echo "== Generating initramfs"
+arch-chroot "$TARGET_ROOT" mkinitcpio -P || { echo "ERROR: mkinitcpio failed." >&2; exit 1; }
+
+case "$BOOTLOADER" in
+  grub)
+    echo "== Installing GRUB ($FIRMWARE)"
+    if [[ $FIRMWARE == UEFI ]]; then
+      arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL \
+        || { echo "ERROR: grub-install failed." >&2; exit 1; }
+    else
+      arch-chroot "$TARGET_ROOT" grub-install --target=i386-pc "$DEV" \
+        || { echo "ERROR: grub-install failed." >&2; exit 1; }
+    fi
+    sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' "$TARGET_ROOT/etc/default/grub"
+    grep -q "^GRUB_DISABLE_OS_PROBER=false" "$TARGET_ROOT/etc/default/grub" || \
+      printf '\nGRUB_DISABLE_OS_PROBER=false\n' >> "$TARGET_ROOT/etc/default/grub"
+    arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg \
+      || { echo "ERROR: grub-mkconfig failed." >&2; exit 1; }
+    ;;
+  systemd-boot)
+    echo "== Installing systemd-boot (UEFI)"
+    arch-chroot "$TARGET_ROOT" bootctl install --esp-path=/boot \
+      || { echo "ERROR: bootctl install failed." >&2; exit 1; }
+    ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
+    kver=$(ls "$TARGET_ROOT/usr/lib/modules" | grep -E '^[0-9]' | head -1)
+    # systemd-boot needs the kernel + initramfs on the ESP (/boot)
+    ln -sf "/usr/lib/modules/$kver/vmlinuz" "$TARGET_ROOT/boot/vmlinuz-linux-cool"
+    ln -sf "/boot/initramfs-${kver}.img" "$TARGET_ROOT/boot/initramfs-linux-cool.img"
+    mkdir -p "$TARGET_ROOT/boot/loader/entries"
+    cat > "$TARGET_ROOT/boot/loader/entries/cool-arch.conf" <<EOF
+title   Cool Arch Linux
+linux   /vmlinuz-linux-cool
+initrd  /initramfs-linux-cool.img
+options root=UUID=$ROOT_UUID rw
+EOF
+    ;;
+  limine)
+    echo "== Installing Limine ($FIRMWARE)"
+    arch-chroot "$TARGET_ROOT" limine-install "$DEV" \
+      || { echo "ERROR: limine-install failed." >&2; exit 1; }
+    ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
+    kver=$(ls "$TARGET_ROOT/usr/lib/modules" | grep -E '^[0-9]' | head -1)
+    ln -sf "/usr/lib/modules/$kver/vmlinuz" "$TARGET_ROOT/boot/vmlinuz-linux-cool"
+    cat > "$TARGET_ROOT/boot/limine.cfg" <<EOF
+timeout: 5
+
+/Cool Arch Linux
+    protocol: linux
+    kernel_path: boot():/vmlinuz-linux-cool
+    initrd_path: boot():/initramfs-${kver}.img
+    cmdline: root=UUID=$ROOT_UUID rw
+EOF
+    ;;
+esac
 
 # ---------- 14. done ----------
 echo
