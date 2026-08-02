@@ -286,6 +286,7 @@ if [[ -n "$osprober_out" ]]; then
     osname=$(echo "$line" | cut -d: -f3)
     echo "    found: $osname on $dev"
     echo "$line" | grep -qi "windows" && WINDOWS_FOUND=1
+    true
   done <<< "$osprober_out"
 else
   echo "    no other OS detected by os-prober"
