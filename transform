@@ -101,6 +101,10 @@ chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config"
 # ---------- display manager / tty autostart ----------
 if [[ $DM != "none" ]]; then
   systemctl enable "$DM"
+  if [[ $DM == "sddm" ]]; then
+    mkdir -p /etc/sddm.conf.d
+    printf '[Theme]\nCurrent=cool-arch\n' > /etc/sddm.conf.d/cool-theme.conf
+  fi
   echo "== Enabled $DM"
 else
   grep -q "start-hyprland" "$TARGET_HOME/.zshrc" 2>/dev/null || {

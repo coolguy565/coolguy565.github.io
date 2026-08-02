@@ -441,6 +441,10 @@ fi
 arch-chroot "$TARGET_ROOT" systemctl enable NetworkManager
 if [[ $DM != "none" ]]; then
   arch-chroot "$TARGET_ROOT" systemctl enable "$DM"
+  if [[ $DM == "sddm" ]]; then
+    mkdir -p "$TARGET_ROOT/etc/sddm.conf.d"
+    printf '[Theme]\nCurrent=cool-arch\n' > "$TARGET_ROOT/etc/sddm.conf.d/cool-theme.conf"
+  fi
 fi
 
 # ---------- 11. certificate fix script (optional) ----------

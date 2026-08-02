@@ -1,6 +1,6 @@
 pkgname=cool-install-scripts
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Cool Arch Linux installer and desktop configs (Hyprland lua, waybar, hyprpaper, walker, poweroff)"
 arch=('any')
 url="https://github.com/coolguy565/coolguy565.github.io"
@@ -31,8 +31,20 @@ source=(
   'waybar-config.jsonc'
   'waybar-style.css'
   'walker-config.toml'
+  'Main.qml'
+  'CoolCombo.qml'
+  'theme.conf'
+  'avatar.png'
+  'power.svg'
+  'restart.svg'
 )
 sha256sums=(
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
   'SKIP'
   'SKIP'
   'SKIP'
@@ -55,4 +67,11 @@ package() {
   install -Dm644 waybar-config.jsonc "$pkgdir/usr/share/cool-arch/waybar/config.jsonc"
   install -Dm644 waybar-style.css "$pkgdir/usr/share/cool-arch/waybar/style.css"
   install -Dm644 walker-config.toml "$pkgdir/usr/share/cool-arch/walker/config.toml"
+
+  install -Dm644 Main.qml "$pkgdir/usr/share/sddm/themes/cool-arch/Main.qml"
+  install -Dm644 CoolCombo.qml "$pkgdir/usr/share/sddm/themes/cool-arch/CoolCombo.qml"
+  install -Dm644 theme.conf "$pkgdir/usr/share/sddm/themes/cool-arch/theme.conf"
+  install -Dm644 avatar.png "$pkgdir/usr/share/sddm/themes/cool-arch/avatar.png"
+  install -Dm644 power.svg "$pkgdir/usr/share/sddm/themes/cool-arch/power.svg"
+  install -Dm644 restart.svg "$pkgdir/usr/share/sddm/themes/cool-arch/restart.svg"
 }
