@@ -79,49 +79,84 @@ uninstall_repo() {
   echo "==> [$REPO] repo removed. Installed packages are kept."
 }
 
-banner
-echo
+read_key() {
+  # arrow keys / enter from the real terminal, not stdin (script may be piped)
+  local key seq
+  IFS= read -rsn1 key </dev/tty
+  if [[ $key == $'\e' ]]; then
+    IFS= read -rsn2 seq </dev/tty 2>/dev/null || seq=''
+    case "$seq" in
+      '[A') echo up ;;
+      '[B') echo down ;;
+      '[C') echo right ;;
+      '[D') echo left ;;
+    esac
+  elif [[ $key == $'\r' || $key == $'\n' ]]; then
+    echo enter
+  else
+    echo "$key"
+  fi
+}
 
-if repo_installed; then
-  status="INSTALLED"
-  repo_outdated && status+=" (update available)"
-else
-  status="NOT INSTALLED"
-fi
-echo "Repo status: $status"
+build_options() {
+  options=()
+  if repo_installed; then
+    options+=("Uninstall repo")
+    repo_outdated && options+=("Update repo")
+  else
+    options+=("Install repo")
+  fi
+  options+=("Quit")
+}
+
+render() {
+  printf '\033[2J\033[H'
+  banner
+  echo
+  echo "Repo status: $status"
+  echo
+  echo "Use arrow keys to move, Enter to select:"
+  for i in "${!options[@]}"; do
+    if [[ $i -eq $current ]]; then
+      printf '\033[1;32;7m  > %s  \033[0m\n' "${options[$i]}"
+    else
+      printf '    %s\n' "${options[$i]}"
+    fi
+  done
+}
+
+status=""
+current=0
+
+# enter raw mode, restore on exit
+saved_terminal=$(stty -g)
+stty raw -echo
+trap 'stty "$saved_terminal"' EXIT INT TERM
 
 while true; do
-  echo
-  installed=0
-  repo_installed && installed=1
-  outdated=0
-  if [[ $installed -eq 1 ]]; then
-    repo_outdated && outdated=1
-  fi
+  installed=0; repo_installed && installed=1
+  outdated=0; [[ $installed -eq 1 ]] && repo_outdated && outdated=1
+  status="NOT INSTALLED"
+  [[ $installed -eq 1 ]] && status="INSTALLED"
+  [[ $outdated -eq 1 ]] && status+=" (update available)"
 
-  echo "What would you like to do?"
-  echo "  1) $([[ $installed -eq 1 ]] && echo Uninstall || echo Install) repo"
-  if [[ $installed -eq 1 && $outdated -eq 1 ]]; then
-    echo "  2) Update repo"
-    echo "  3) Quit"
-  else
-    echo "  2) Quit"
-  fi
-  printf "Choice: "
-  read -r choice
-  case "$choice" in
-    1)
-      if [[ $installed -eq 1 ]]; then uninstall_repo; else install_repo; fi
-      ;;
-    2)
-      if [[ $installed -eq 1 && $outdated -eq 1 ]]; then update_repo; else exit 0; fi
-      ;;
-    3)
-      if [[ $installed -eq 1 && $outdated -eq 1 ]]; then exit 0; fi
-      echo "Invalid choice: $choice"
-      ;;
-    *)
-      echo "Invalid choice: $choice"
-      ;;
+  build_options
+  [[ $current -ge ${#options[@]} ]] && current=$(( ${#options[@]} - 1 ))
+
+  render
+  case "$(read_key)" in
+    up)    ((current = (current - 1 + ${#options[@]}) % ${#options[@]})) ;;
+    down)  ((current = (current + 1) % ${#options[@]})) ;;
+    enter) break ;;
+    q)     stty "$saved_terminal"; exit 0 ;;
   esac
 done
+
+stty "$saved_terminal"
+
+case "${options[$current]}" in
+  "Install repo")   install_repo ;;
+  "Uninstall repo") uninstall_repo ;;
+  "Update repo")    update_repo ;;
+  "Quit")           echo "Bye!" ;;
+esac
