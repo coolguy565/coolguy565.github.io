@@ -137,9 +137,12 @@ status=""
 current=0
 
 # enter raw mode, restore on exit
-saved_terminal=$(stty -g)
-stty raw -echo
-trap 'stty "$saved_terminal"' EXIT INT TERM
+saved_terminal=$(stty -g </dev/tty 2>/dev/null) || {
+  echo "Error: no interactive terminal available (/dev/tty). Run this from a real terminal." >&2
+  exit 1
+}
+stty raw -echo </dev/tty
+trap 'stty "$saved_terminal" </dev/tty 2>/dev/null' EXIT INT TERM
 
 while true; do
   installed=0; repo_installed && installed=1
@@ -156,11 +159,11 @@ while true; do
     up)    ((current = (current - 1 + ${#options[@]}) % ${#options[@]})) ;;
     down)  ((current = (current + 1) % ${#options[@]})) ;;
     enter) break ;;
-    q)     stty "$saved_terminal"; exit 0 ;;
+    q)     stty "$saved_terminal" </dev/tty; exit 0 ;;
   esac
 done
 
-stty "$saved_terminal"
+stty "$saved_terminal" </dev/tty
 
 case "${options[$current]}" in
   "Install repo")   install_repo ;;
