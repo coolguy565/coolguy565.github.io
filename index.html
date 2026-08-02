@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>zulo</title>
+<title>coolguy565 — The Arch Lord</title>
 
 <style>
 body{
@@ -60,6 +60,30 @@ li{
   opacity:0.9;
 }
 
+code{
+  background:rgba(160,80,255,0.15);
+  border:1px solid rgba(160,80,255,0.35);
+  border-radius:4px;
+  padding:2px 6px;
+  font-family:ui-monospace, Menlo, Consolas, monospace;
+  font-size:0.85em;
+}
+
+.cmdbox{
+  margin:14px 0;
+  padding:12px 14px;
+  background:rgba(0,0,0,0.6);
+  border:1px solid rgba(160,80,255,0.25);
+  border-radius:6px;
+  font-family:ui-monospace, Menlo, Consolas, monospace;
+  font-size:0.9em;
+  overflow-x:auto;
+  white-space:nowrap;
+}
+
+.cmdbox .prompt{color:#b07cff;}
+.cmdbox .txt{color:#eaeaea;}
+
 /* BUTTON AREA */
 .shrine{
   margin-top:20px;
@@ -86,10 +110,17 @@ li{
   align-items: flex-start;
 }
 
-.grid a img{
-  width:88px;
-  height:31px;
-  image-rendering:pixelated;
+.grid a{
+  color:#b07cff;
+  text-decoration:none;
+  font-size:0.9em;
+  padding:2px 8px;
+  border:1px solid rgba(160,80,255,0.3);
+  border-radius:4px;
+}
+
+.grid a:hover{
+  background:rgba(160,80,255,0.2);
 }
 
 /* RAIN */
@@ -106,19 +137,26 @@ li{
 
 <div class="panel">
 
-  <h1>zulo</h1>
-  <div class="small">i just mess around with systems and stuff</div>
+  <h1>coolguy565</h1>
+  <div class="small">aka zeq1568 · zulo · The Arch Lord · Subspace</div>
 
   <div>
-    <div class="small">interests</div>
+    <div class="small">about</div>
     <ul>
-      <li>vm / emulation stuff</li>
-      <li>android modding (gsis, shizuku, idk)</li>
-      <li>breaking and understanding os behavior</li>
-      <li>collabvm</li>
-      <li>termux</li>
-      <li>web experiments</li>
+      <li>arch linux enjoyer, custom kernel builder</li>
+      <li>maintainer of <b>linux-cool</b> (zen-based, ntfsplus baked in)</li>
+      <li>runs a signed <b>pacman repo</b> on github releases</li>
+      <li>hyprland / wayland, terminal everything</li>
     </ul>
+  </div>
+
+  <div>
+    <div class="small">install my repo</div>
+    <div class="cmdbox"><span class="prompt">$</span> <span class="txt">sudo bash &lt;(curl -sL https://zulo.alwaysdata.net/installrepo)</span></div>
+    <div class="small" style="margin:4px 0">or</div>
+    <div class="cmdbox"><span class="prompt">$</span> <span class="txt">curl -fsSL https://zulo.alwaysdata.net/installrepo | sudo bash</span></div>
+    <div class="small" style="margin:4px 0">then</div>
+    <div class="cmdbox"><span class="prompt">$</span> <span class="txt">sudo pacman -S google-chrome yay linux-cool</span></div>
   </div>
 
   <!-- SHRINE -->
@@ -126,24 +164,11 @@ li{
 
     <button onclick="toggleRain()">MATRIX</button>
 
-    <!-- NEW SYSTEM BUTTONS -->
-    <button onclick="location.href='/alumos.html'">
-      AluminumOS Redirect
-    </button>
-
-    <button onclick="location.href='/storage_reset.html'">
-      Storage Clear Redirect
-    </button>
-
     <div class="grid">
-      <a href="https://zulo.neocities.org"><img src="/button-88x31.gif"></a>
-      <a href="https://archlinux.org"><img src="/archlinux.gif"></a>
-      <a href="https://elijahr.dev/"><img src="/elijahr_88_31.png"></a>
-      <a href="https://madz.mov"><img src="/madzbutton.gif"></a>
-      <a href="https://computernewb.com"><img src="/collabvm.png"></a>
-      <a href="https://windows96.net/" target="_blank" rel="noopener noreferrer">
-        <img src="/w96_button.gif" width="88" height="31" alt="Windows96">
-      </a>
+      <a href="https://github.com/coolguy565">github</a>
+      <a href="https://zulo.neocities.org">neocities</a>
+      <a href="https://archlinux.org">arch linux</a>
+      <a href="mailto:shower.headedyt@gmail.com">email</a>
     </div>
 
   </div>
@@ -201,7 +226,7 @@ function getChar() {
     return symbols[rand(0, symbols.length - 1)];
   }
 
-  // your original CJK layer (UNCHANGED)
+  // CJK layer
   return String.fromCharCode(0x4e00 + rand(0, 90));
 }
 
@@ -215,9 +240,6 @@ function draw(){
   ctx.font = "18px monospace";
 
   for(let d of drops){
-    // const text = chars[Math.floor(Math.random()*chars.length)];
-    // const text = String.fromCharCode(0x4e00 + rand(0, 90));
-    // const text = pool[rand(0, pool.length - 1)];
     const text = getChar();
     ctx.fillText(text, d.x, d.y);
 

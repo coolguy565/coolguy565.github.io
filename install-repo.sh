@@ -54,8 +54,12 @@ trust_key() {
 }
 
 install_repo() {
-  echo "==> Adding [$REPO] to $PACMAN_CONF"
-  printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO" "$SERVER" >> "$PACMAN_CONF"
+  if repo_installed; then
+    echo "==> [$REPO] already in $PACMAN_CONF, keeping existing entry"
+  else
+    echo "==> Adding [$REPO] to $PACMAN_CONF"
+    printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO" "$SERVER" >> "$PACMAN_CONF"
+  fi
   trust_key
   echo "==> Syncing repositories"
   pacman -Sy
@@ -112,6 +116,10 @@ build_options() {
 render() {
   printf '\033[2J\033[H'
   banner
+  echo
+  echo "Repository: $REPO"
+  echo "Server: $SERVER"
+  echo "Key: $KEYID"
   echo
   echo "Repo status: $status"
   echo
