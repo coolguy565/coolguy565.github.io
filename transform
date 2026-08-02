@@ -18,15 +18,19 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # ---------- banner ----------
-if command -v figlet >/dev/null 2>&1; then
-  tput setaf 4; figlet -f slant "Cool Arch"; tput sgr0
-else
-  echo "== Cool Arch =="
-fi
+banner() {
+  if command -v figlet >/dev/null 2>&1; then
+    tput setaf 4; figlet -f slant "Cool Arch"; tput sgr0
+  else
+    echo "== Cool Arch =="
+  fi
+}
+banner
 echo "  Transforming $(uname -r) into Cool Arch..."
 
 # ---------- selections ----------
 echo
+banner "Caps Lock behavior"
 echo "== Caps Lock behavior"
 echo "  1) Caps --> Caps"
 echo "  2) Caps --> Compose"
@@ -49,6 +53,7 @@ else
 fi
 
 echo
+banner "Display manager"
 echo "== Display manager"
 echo "  1) SDDM (recommended for Hyprland)"
 echo "  2) None (auto-start Hyprland on tty1)"
@@ -59,6 +64,7 @@ case "${dm_choice:-1}" in
 esac
 
 echo
+banner "Browser"
 echo "== Browser"
 echo "  1) Google Chrome  2) Firefox  3) LibreWolf  4) Chromium  5) Brave"
 read -rp "  Choice [2]: " br_choice </dev/tty
@@ -71,6 +77,7 @@ case "${br_choice:-2}" in
 esac
 
 echo
+banner "Installing packages"
 echo "== Installing packages"
 grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
   printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
@@ -86,6 +93,7 @@ pacman -S --noconfirm --needed \
   $([[ $DM != "none" ]] && echo "$DM")
 
 # ---------- configs ----------
+banner "Applying Cool Arch configs to $TARGET_USER"
 echo "== Applying Cool Arch configs to $TARGET_USER"
 mkdir -p "$TARGET_HOME/.config/hypr" "$TARGET_HOME/.config/waybar" "$TARGET_HOME/.config/walker"
 install -m644 /usr/share/cool-arch/hypr/hyprland.lua "$TARGET_HOME/.config/hypr/hyprland.lua"
@@ -105,7 +113,8 @@ if [[ $DM != "none" ]]; then
     mkdir -p /etc/sddm.conf.d
     printf '[Theme]\nCurrent=cool-arch\n' > /etc/sddm.conf.d/cool-theme.conf
   fi
-  echo "== Enabled $DM"
+  banner "Enabled $DM"
+echo "== Enabled $DM"
 else
   grep -q "start-hyprland" "$TARGET_HOME/.zshrc" 2>/dev/null || {
     cat >> "$TARGET_HOME/.zshrc" <<'ZSH'
@@ -117,9 +126,11 @@ fi
 ZSH
     chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.zshrc"
   }
-  echo "== Added Hyprland autostart to $TARGET_HOME/.zshrc"
+  banner "Added Hyprland autostart to $TARGET_HOME/.zshrc"
+echo "== Added Hyprland autostart to $TARGET_HOME/.zshrc"
 fi
 
 echo
+banner "Cool Arch transform complete!"
 echo "== Cool Arch transform complete!"
 echo "  Reboot to enter your new system."

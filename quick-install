@@ -22,6 +22,7 @@ trap 'rm -f "$tmp"' EXIT
 
 {
   cat <<'REPO_SETUP'
+echo "== Starting Cool Arch install..."
 set -euo pipefail
 REPO_NAME="coolguy565"
 REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
