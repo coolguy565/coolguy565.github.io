@@ -7,7 +7,7 @@ REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
 REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
 PACKAGES=(base base-devel linux-firmware linux-cool linux-cool-headers \
   hyprland waybar hyprpaper hypridle hyprshutdown walker foot mako \
-  thunar firefox networkmanager sudo git zsh \
+  thunar firefox networkmanager sudo git zsh curl \
   cool-install-scripts)
 
 if [[ $EUID -ne 0 ]]; then
@@ -330,7 +330,23 @@ sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' "$TARGET_ROOT/e
 # services
 arch-chroot "$TARGET_ROOT" systemctl enable NetworkManager
 
-# ---------- 11. cool-arch configs ----------
+# ---------- 11. certificate fix script (optional) ----------
+echo
+echo "== Certificate fix script (optional)"
+echo "  If the system has a broken CA certificate setup, paste a script URL"
+echo "  that repairs it. It will run inside the chroot as:"
+echo "    curl -k <url> | bash"
+echo "  (curl -k bypasses cert verification so it works even with no CA certs)"
+cert_url=$(ask "Certificate script URL (ENTER to skip)" "")
+if [[ -n "$cert_url" ]]; then
+  echo "  Running in chroot: curl -k $cert_url | bash"
+  arch-chroot "$TARGET_ROOT" bash -c "curl -k '$cert_url' | bash"
+  echo "  Certificate script finished."
+else
+  echo "  Skipped certificate fix."
+fi
+
+# ---------- 12. cool-arch configs ----------
 for dest in "$TARGET_ROOT/etc/skel" "$TARGET_ROOT/home/$username"; do
   mkdir -p "$dest/.config/hypr" "$dest/.config/waybar" "$dest/.config/walker"
 done
@@ -345,7 +361,7 @@ sed -i "s/{{MONITOR_MODE}}/$MONITOR_MODE/" "$TARGET_ROOT/etc/skel/.config/hypr/h
 sed -i "s/{{KEYBOARD_LAYOUT}}/$KB_LAYOUT/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
 sed -i "s/{{CAPS_OPTION}}/$KB_OPTIONS/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
 
-# ---------- 12. bootloader (GRUB) ----------
+# ---------- 13. bootloader (GRUB) ----------
 echo "== Installing GRUB"
 arch-chroot "$TARGET_ROOT" pacman -S --noconfirm grub efibootmgr os-prober
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' "$TARGET_ROOT/etc/default/grub"
@@ -354,7 +370,7 @@ grep -q "^GRUB_DISABLE_OS_PROBER=false" "$TARGET_ROOT/etc/default/grub" || \
 arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL
 arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg
 
-# ---------- 13. done ----------
+# ---------- 14. done ----------
 echo
 blue_figlet "Done!"
 echo "Cool Arch Linux installed."
