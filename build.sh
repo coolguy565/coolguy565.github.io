@@ -51,7 +51,7 @@ for pkgdir in packages/*/; do
     continue
   fi
   echo "::group::Building ${pkgdir%/}"
-  local mkg_args=(-s --noconfirm)
+  mkg_args=(-s --noconfirm)
   [[ -f "$pkgdir/.skippgpcheck" ]] && mkg_args+=(--skippgpcheck)
   ( cd "$pkgdir" && makepkg "${mkg_args[@]}" --sign ) \
     || echo "::warning::build failed: ${pkgdir%/}"
