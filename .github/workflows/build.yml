@@ -17,6 +17,7 @@ env:
   PACKAGER_NAME: ${{ secrets.PACKAGER_NAME }}
   PACKAGER_EMAIL: ${{ secrets.PACKAGER_EMAIL }}
   GPGKEY: ${{ secrets.GPGKEY }}
+  RELEASE_TAG: repo
 
 jobs:
   build:
@@ -30,7 +31,17 @@ jobs:
       - name: Update system and install build tools
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm --needed base-devel git gnupg sudo
+          pacman -S --noconfirm --needed base-devel git gnupg sudo github-cli
+
+      - name: Fetch existing release assets (preserves manually-uploaded packages)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "coolguy565 pacman repo" || true
+          mkdir -p repo
+          gh release download "$RELEASE_TAG" --dir repo \
+            --pattern '*.pkg.tar.zst*' --pattern '*.db.tar.gz*' --pattern '*.asc' 2>/dev/null || true
+          ls repo/ 2>/dev/null || true
 
       - name: Create builder user
         run: |
@@ -45,10 +56,12 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: su builder -c "cd \"$GITHUB_WORKSPACE\" && ./build.sh"
 
-      - name: Deploy to GitHub Pages (gh-pages branch)
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: repo
-          force_orphan: true
+      - name: Publish to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$RELEASE_TAG" --clobber \
+            repo/myrepo.db.tar.gz repo/myrepo.db.tar.gz.sig \
+            repo/myrepo.files.tar.gz repo/myrepo.files.tar.gz.sig \
+            repo/myrepo.asc \
+            packages/*/*.pkg.tar.zst packages/*/*.pkg.tar.zst.sig

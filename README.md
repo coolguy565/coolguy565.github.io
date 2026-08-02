@@ -49,13 +49,13 @@ Push, wait for the build, done.
    ```
    [myrepo]
    SigLevel = Required DatabaseOptional
-   Server = https://coolguy565.github.io/
+   Server = https://github.com/coolguy565/coolguy565.github.io/releases/download/repo
    ```
 
 2. Import and trust the signing key:
    ```sh
    sudo pacman-key --init
-   curl -L -o myrepo.asc https://coolguy565.github.io/myrepo.asc
+   curl -L -o myrepo.asc https://github.com/coolguy565/coolguy565.github.io/releases/download/repo/myrepo.asc
    sudo pacman-key --add myrepo.asc
    sudo pacman-key --lsign-key E36138CC5F015492A1D620581C4F28ACC1A18345
    ```
