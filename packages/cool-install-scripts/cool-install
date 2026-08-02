@@ -21,8 +21,20 @@ error_handler() {
   echo
   echo "ERROR: install failed (line $1)." >&2
   umount -R "$TARGET_ROOT" 2>/dev/null || true
-  echo "Install aborted. You can re-run the installer." >&2
-  exit 1
+  echo
+  echo "Installation failed."
+  echo "  [1] Open a recovery shell"
+  echo "  [2] Reboot"
+  echo "  [3] Exit"
+  read -rp "  Choice [1]: " rec_choice < /dev/tty 2>/dev/null || rec_choice="3"
+  case "${rec_choice:-1}" in
+    2) reboot ;;
+    3) exit 1 ;;
+    *) echo "== Recovery shell - fix things, then exit (Ctrl-D) to return here."
+       bash < /dev/tty 2>/dev/null || exit 1
+       echo "Still failing. Exiting." >&2
+       exit 1 ;;
+  esac
 }
 trap 'error_handler $LINENO' ERR
 
@@ -212,6 +224,33 @@ case "${br_choice:-2}" in
 esac
 PACKAGES+=("$BROWSER")
 
+# ---------- 5.7 hostname ----------
+while :; do
+  hostname=$(ask "Hostname" "coolarch")
+  [[ "$hostname" =~ ^[a-zA-Z0-9-]+$ ]] && break
+  echo "  Invalid hostname (letters, numbers, hyphens only)."
+done
+
+# ---------- 5.8 timezone ----------
+echo "== Timezone"
+echo "  1) UTC"
+echo "  2) America/Sao_Paulo"
+echo "  3) America/New_York"
+echo "  4) Europe/London"
+echo "  5) Europe/Berlin"
+echo "  6) Asia/Tokyo"
+echo "  7) Custom"
+read -rp "  Choice [1]: " tz_choice
+case "${tz_choice:-1}" in
+  2) tz="America/Sao_Paulo" ;;
+  3) tz="America/New_York" ;;
+  4) tz="Europe/London" ;;
+  5) tz="Europe/Berlin" ;;
+  6) tz="Asia/Tokyo" ;;
+  7) tz=$(ask "Timezone (e.g. America/Sao_Paulo)" "Etc/UTC") ;;
+  *) tz="Etc/UTC" ;;
+esac
+
 # ---------- 6. disk selection + OS detection ----------
 echo
 echo "== Available disks:"
@@ -398,6 +437,12 @@ grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
 }
 pacman -Syy
 
+echo "== Checking internet connectivity"
+if ! ping -c1 -W3 ping.archlinux.org >/dev/null 2>&1; then
+  echo "ERROR: no internet connectivity. Fix networking and re-run." >&2
+  exit 1
+fi
+
 echo "== Installing packages (this takes a while)"
 attempt=0
 while true; do
@@ -432,12 +477,9 @@ arch-chroot "$TARGET_ROOT" locale-gen
 echo "LANG=$LOCALE" > "$TARGET_ROOT/etc/locale.conf"
 echo "KEYMAP=${KB_LAYOUT}" > "$TARGET_ROOT/etc/vconsole.conf"
 
-hostname=$(ask "Hostname" "coolarch")
 echo "$hostname" > "$TARGET_ROOT/etc/hostname"
 
-echo
-echo "== Timezone (e.g. America/Sao_Paulo, Europe/London)"
-tz=$(ask "Timezone" "Etc/UTC")
+# timezone
 ln -sf "/usr/share/zoneinfo/$tz" "$TARGET_ROOT/etc/localtime"
 arch-chroot "$TARGET_ROOT" hwclock --systohc
 
@@ -503,6 +545,28 @@ arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
 
 # ---------- 13. bootloader ----------
 # (pacman's mkinitcpio hook already generated the initramfs during pacstrap)
+
+# Secure Boot / TPM2 setup (shim + sbctl keys)
+SECURE_BOOT=0
+if [[ $FIRMWARE == UEFI ]]; then
+  echo
+  echo "== Secure Boot + TPM2"
+  echo "  Sets up shim + sbctl keys and installs TPM2 tools."
+  echo "  NOTE: key enrollment needs the firmware in Setup Mode (or Secure Boot disabled)."
+  confirm "Set up Secure Boot and TPM2?" && SECURE_BOOT=1
+  if [[ $SECURE_BOOT -eq 1 ]]; then
+    arch-chroot "$TARGET_ROOT" pacman -S --noconfirm sbctl shim-signed tpm2-tools tpm2-tss
+    arch-chroot "$TARGET_ROOT" systemctl enable tpm2.target 2>/dev/null || true
+    arch-chroot "$TARGET_ROOT" sbctl create-keys
+    if arch-chroot "$TARGET_ROOT" sbctl enroll-keys --microsoft; then
+      echo "  Secure Boot keys enrolled."
+    else
+      echo "  WARNING: could not enroll keys (firmware not in Setup Mode?)."
+      echo "  You can enroll later with: sbctl enroll-keys --microsoft"
+    fi
+  fi
+fi
+
 case "$BOOTLOADER" in
   grub)
     echo "== Installing GRUB ($FIRMWARE)"
@@ -529,6 +593,21 @@ case "$BOOTLOADER" in
       printf '\nGRUB_DISABLE_OS_PROBER=false\n' >> "$TARGET_ROOT/etc/default/grub"
     arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg \
       || { echo "ERROR: grub-mkconfig failed." >&2; exit 1; }
+
+    # sign the boot chain for Secure Boot
+    if [[ $SECURE_BOOT -eq 1 && $FIRMWARE == UEFI ]]; then
+      echo "== Signing boot files with sbctl"
+      arch-chroot "$TARGET_ROOT" sbctl sign /boot/grub/grubx64.efi || true
+      for k in "$TARGET_ROOT"/usr/lib/modules/*/vmlinuz; do
+        [[ -e "$k" ]] || continue
+        arch-chroot "$TARGET_ROOT" sbctl sign "${k#$TARGET_ROOT}" || true
+      done
+      for i in "$TARGET_ROOT"/boot/initramfs-*.img; do
+        [[ -e "$i" ]] || continue
+        arch-chroot "$TARGET_ROOT" sbctl sign "/boot/${i##*/}" || true
+      done
+      echo "  Signed GRUB, kernel and initramfs."
+    fi
     ;;
   systemd-boot)
     echo "== Installing systemd-boot (UEFI)"
