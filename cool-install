@@ -110,6 +110,11 @@ step() {
 }
 
 # ---------- 1. banner ----------
+# make sure figlet is available so the banner renders properly
+if ! command -v figlet >/dev/null 2>&1; then
+  echo "Installing figlet..."
+  pacman -S --noconfirm figlet >/dev/null 2>&1 || true
+fi
 clear
 blue_figlet "Cool Arch"
 

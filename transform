@@ -25,6 +25,10 @@ banner() {
     echo "== Cool Arch =="
   fi
 }
+# make sure figlet is available for the banner
+if ! command -v figlet >/dev/null 2>&1; then
+  pacman -S --noconfirm figlet >/dev/null 2>&1 || true
+fi
 banner
 echo "  Transforming $(uname -r) into Cool Arch..."
 
