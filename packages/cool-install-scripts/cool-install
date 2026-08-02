@@ -104,11 +104,17 @@ blue_figlet() {
   fi
 }
 
+step() {
+  blue_figlet "Cool Arch"
+  echo "  == $1 =="
+}
+
 # ---------- 1. banner ----------
 clear
 blue_figlet "Cool Arch"
 
 # ---------- 2. language / keyboard ----------
+step "language / keyboard"
 echo "== Select language"
 echo "  1) English (US)      us      en_US.UTF-8"
 echo "  2) Portuguese (BR)   br-abnt2 pt_BR.UTF-8"
@@ -126,6 +132,7 @@ case "${lang_choice:-1}" in
 esac
 
 # ---------- 3. caps option ----------
+step "caps option"
 echo
 echo "== Caps Lock behavior"
 echo "  1) Caps --> Caps"
@@ -140,6 +147,7 @@ case "${caps_choice:-1}" in
 esac
 
 # ---------- 4. resolution ----------
+step "resolution"
 echo
 res=$(ask "Screen resolution (e.g. 1920x1080; blank = auto)" "1920x1080")
 hz=$(ask "Refresh rate (blank = default)" "")
@@ -152,6 +160,7 @@ else
 fi
 
 # ---------- 5. user / password ----------
+step "user / password"
 echo
 while :; do
   username=$(ask "Username" "")
@@ -260,6 +269,7 @@ case "${tz_choice:-1}" in
 esac
 
 # ---------- 6. disk selection + OS detection ----------
+step "disk selection + OS detection"
 echo
 echo "== Available disks:"
 lsblk -d -o NAME,SIZE,MODEL -n
@@ -321,6 +331,7 @@ if [[ $MODE == erase ]]; then
 fi
 
 # ---------- 7. install summary ----------
+step "install summary"
 # (run the alongside size slider first so the summary is accurate)
 case "$MODE" in
   alongside)
@@ -357,6 +368,7 @@ echo "=================================================="
 confirm "Start installation?" || { echo "Aborted."; exit 1; }
 
 # ---------- 8. partition ----------
+step "partition"
 TARGET_ROOT="/mnt/cool"
 mkdir -p "$TARGET_ROOT"
 
@@ -443,6 +455,7 @@ mount -o subvol=/@home,compress=zstd "$ROOT_PART" "$TARGET_ROOT/home"
 mount "$EFI_PART" "$TARGET_ROOT/boot"
 
 # ---------- 9. repo + pacstrap ----------
+step "repo + pacstrap"
 echo "== Adding coolguy565 repo"
 grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
   printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
@@ -484,6 +497,7 @@ arch-chroot "$TARGET_ROOT" pacman-key --lsign-key "$REPO_KEY"
 rm -f "$TARGET_ROOT/tmp/cool.asc"
 
 # ---------- 10. configure ----------
+step "configure"
 genfstab -U "$TARGET_ROOT" >> "$TARGET_ROOT/etc/fstab"
 
 # locale
@@ -528,6 +542,7 @@ if [[ $DM != "none" ]]; then
 fi
 
 # ---------- 11. certificate fix script (optional) ----------
+step "certificate fix script (optional)"
 echo
 echo "== Certificate fix script (optional)"
 echo "  If the system has a broken CA certificate setup, paste a script URL"
@@ -544,6 +559,7 @@ else
 fi
 
 # ---------- 12. cool-arch configs ----------
+step "cool-arch configs"
 mkdir -p "$TARGET_ROOT/etc/skel/.config/hypr" "$TARGET_ROOT/etc/skel/.config/waybar" "$TARGET_ROOT/etc/skel/.config/walker"
 install -Dm644 /usr/share/cool-arch/hypr/hyprland.lua "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
 install -Dm644 /usr/share/cool-arch/hypr/hyprpaper.conf "$TARGET_ROOT/etc/skel/.config/hypr/hyprpaper.conf"
@@ -559,6 +575,7 @@ cp -a "$TARGET_ROOT/etc/skel/." "$TARGET_ROOT/home/$username/"
 arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
 
 # ---------- 13. bootloader ----------
+step "bootloader"
 # (pacman's mkinitcpio hook already generated the initramfs during pacstrap)
 
 # Secure Boot / TPM2 setup (shim + sbctl keys)
@@ -613,6 +630,10 @@ case "$BOOTLOADER" in
     sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' "$TARGET_ROOT/etc/default/grub"
     grep -q "^GRUB_DISABLE_OS_PROBER=false" "$TARGET_ROOT/etc/default/grub" || \
       printf '\nGRUB_DISABLE_OS_PROBER=false\n' >> "$TARGET_ROOT/etc/default/grub"
+    # Btrfs: tell the kernel to mount the @ subvolume as root
+    grep -q "^GRUB_CMDLINE_LINUX=" "$TARGET_ROOT/etc/default/grub" \
+      && sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="rootflags=subvol=@,compress=zstd"|' "$TARGET_ROOT/etc/default/grub" \
+      || printf 'GRUB_CMDLINE_LINUX="rootflags=subvol=@,compress=zstd"\n' >> "$TARGET_ROOT/etc/default/grub"
     arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg \
       || { echo "ERROR: grub-mkconfig failed." >&2; exit 1; }
 
@@ -645,7 +666,7 @@ case "$BOOTLOADER" in
 title   Cool Arch Linux
 linux   /vmlinuz-linux-cool
 initrd  /initramfs-linux-cool.img
-options root=UUID=$ROOT_UUID rw
+options root=UUID=$ROOT_UUID rw rootflags=subvol=@,compress=zstd
 EOF
     ;;
   limine)
@@ -662,12 +683,13 @@ timeout: 5
     protocol: linux
     kernel_path: boot():/vmlinuz-linux-cool
     initrd_path: boot():/initramfs-${kver}.img
-    cmdline: root=UUID=$ROOT_UUID rw
+    cmdline: root=UUID=$ROOT_UUID rw rootflags=subvol=@,compress=zstd
 EOF
     ;;
 esac
 
 # ---------- 14. done ----------
+step "done"
 echo
 blue_figlet "Done!"
 echo "Cool Arch Linux installed."
