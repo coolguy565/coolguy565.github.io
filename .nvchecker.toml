@@ -1,0 +1,13 @@
+[__config__]
+oldver = ".nvchecker.old.json"
+newver = ".nvchecker.new.json"
+
+[google-chrome]
+source = "regex"
+url = "https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages"
+regex = "Package: google-chrome-stable\nVersion: ([0-9.]+)-1"
+
+[yay]
+source = "github"
+github = "Jguer/yay"
+use_latest_release = true
