@@ -343,6 +343,16 @@ pacman -Syy
 echo "== Installing packages (this takes a while)"
 pacstrap -K "$TARGET_ROOT" "${PACKAGES[@]}"
 
+# persist the repo into the installed system so pacman works after reboot
+echo "== Configuring coolguy565 repo inside the new system"
+curl -fsSL -o "$TARGET_ROOT/tmp/cool.asc" "$REPO_URL/$REPO_NAME.asc"
+printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> "$TARGET_ROOT/etc/pacman.conf"
+arch-chroot "$TARGET_ROOT" pacman-key --init
+arch-chroot "$TARGET_ROOT" pacman-key --populate archlinux
+arch-chroot "$TARGET_ROOT" pacman-key --add /tmp/cool.asc
+arch-chroot "$TARGET_ROOT" pacman-key --lsign-key "$REPO_KEY"
+rm -f "$TARGET_ROOT/tmp/cool.asc"
+
 # ---------- 10. configure ----------
 genfstab -U "$TARGET_ROOT" >> "$TARGET_ROOT/etc/fstab"
 
@@ -403,19 +413,19 @@ else
 fi
 
 # ---------- 12. cool-arch configs ----------
-for dest in "$TARGET_ROOT/etc/skel" "$TARGET_ROOT/home/$username"; do
-  mkdir -p "$dest/.config/hypr" "$dest/.config/waybar" "$dest/.config/walker"
-done
-cp /usr/share/cool-arch/hypr/hyprland.lua "$TARGET_ROOT/etc/skel/.config/hypr/"
-cp /usr/share/cool-arch/hypr/hyprpaper.conf "$TARGET_ROOT/etc/skel/.config/hypr/"
-cp /usr/share/cool-arch/waybar/config.jsonc "$TARGET_ROOT/etc/skel/.config/waybar/"
-cp /usr/share/cool-arch/waybar/style.css "$TARGET_ROOT/etc/skel/.config/waybar/"
-cp /usr/share/cool-arch/walker/config.toml "$TARGET_ROOT/etc/skel/.config/walker/"
-cp -r "$TARGET_ROOT/etc/skel/." "$TARGET_ROOT/home/$username/" 2>/dev/null || true
-# apply selections to the shipped hyprland.lua
+mkdir -p "$TARGET_ROOT/etc/skel/.config/hypr" "$TARGET_ROOT/etc/skel/.config/waybar" "$TARGET_ROOT/etc/skel/.config/walker"
+install -Dm644 /usr/share/cool-arch/hypr/hyprland.lua "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+install -Dm644 /usr/share/cool-arch/hypr/hyprpaper.conf "$TARGET_ROOT/etc/skel/.config/hypr/hyprpaper.conf"
+install -Dm644 /usr/share/cool-arch/waybar/config.jsonc "$TARGET_ROOT/etc/skel/.config/waybar/config.jsonc"
+install -Dm644 /usr/share/cool-arch/waybar/style.css "$TARGET_ROOT/etc/skel/.config/waybar/style.css"
+install -Dm644 /usr/share/cool-arch/walker/config.toml "$TARGET_ROOT/etc/skel/.config/walker/config.toml"
+# apply selections to the skel hyprland.lua BEFORE copying it to the user
 sed -i "s/{{MONITOR_MODE}}/$MONITOR_MODE/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
 sed -i "s/{{KEYBOARD_LAYOUT}}/$KB_LAYOUT/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
 sed -i "s/{{CAPS_OPTION}}/$KB_OPTIONS/" "$TARGET_ROOT/etc/skel/.config/hypr/hyprland.lua"
+# populate the new user from skel and give them ownership
+cp -a "$TARGET_ROOT/etc/skel/." "$TARGET_ROOT/home/$username/"
+arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
 
 # ---------- 13. bootloader (GRUB) ----------
 echo "== Installing GRUB"
@@ -423,8 +433,10 @@ arch-chroot "$TARGET_ROOT" pacman -S --noconfirm grub efibootmgr os-prober
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' "$TARGET_ROOT/etc/default/grub"
 grep -q "^GRUB_DISABLE_OS_PROBER=false" "$TARGET_ROOT/etc/default/grub" || \
   printf '\nGRUB_DISABLE_OS_PROBER=false\n' >> "$TARGET_ROOT/etc/default/grub"
-arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL
-arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg
+arch-chroot "$TARGET_ROOT" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=COOL \
+  || { echo "ERROR: grub-install failed." >&2; exit 1; }
+arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg \
+  || { echo "ERROR: grub-mkconfig failed." >&2; exit 1; }
 
 # ---------- 14. done ----------
 echo
