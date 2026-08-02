@@ -49,6 +49,14 @@ confirm() { # prompt -> 0 yes / 1 no
   read -rp "  $1 [y/N]: " ans
   [[ ${ans,,} == y ]]
 }
+find_esp() { # -> device node of the EFI System Partition on $DEV (or empty)
+  local parttype="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
+  local p pt
+  for p in $(lsblk -n -o NAME "$DEV" | grep -v "^${disk}$"); do
+    pt=$(lsblk -n -o PARTTYPE "/dev/$p" 2>/dev/null)
+    [[ "$pt" == "$parttype" ]] && { echo "/dev/$p"; return; }
+  done
+}
 key_input() { # arrow keys / enter (handles CSI and SS3)
   local c
   IFS= read -rsN1 c
@@ -379,39 +387,45 @@ case "$MODE" in
     mkfs.btrfs -f "$ROOT_PART"
     ;;
   alongside)
-    echo "== Shrinking largest ext4 partition on $DEV"
+    echo "== Shrinking largest ext4/NTFS partition on $DEV"
     largest=""
     largest_size=0
+    largest_fs=""
     while read -r name fstype size; do
-      if [[ "$fstype" == "ext4" ]]; then
+      if [[ "$fstype" == "ext4" || "$fstype" == "ntfs" ]]; then
         size_bytes=$(numfmt --from=iec "$size" 2>/dev/null || echo 0)
         if [[ $size_bytes -gt $largest_size ]]; then
           largest_size=$size_bytes
           largest="$name"
+          largest_fs="$fstype"
         fi
       fi
-    done < <(lsblk -n -o NAME,FSTYPE,SIZE -r "$DEV" | awk '$2=="ext4"{print}')
-    [[ -n "$largest" ]] || { echo "No ext4 partition to shrink!" >&2; exit 1; }
+    done < <(lsblk -n -o NAME,FSTYPE,SIZE -r "$DEV" | awk '$2=="ext4"||$2=="ntfs"{print}')
+    [[ -n "$largest" ]] || { echo "No ext4/NTFS partition to shrink! Alongside currently supports ext4 and NTFS." >&2; exit 1; }
     largest_dev="/dev/$largest"
     part_num=$(echo "$largest" | sed "s/^${disk}p\?//")
     # shrink filesystem, then partition, leaving `grow` GB for Cool Arch
-    e2fsck -fy "$largest_dev"
-    resize2fs "$largest_dev" "${grow}G"
+    if [[ "$largest_fs" == "ext4" ]]; then
+      e2fsck -fy "$largest_dev"
+      resize2fs "$largest_dev" "${grow}G"
+    else
+      ntfsresize -f --size "${grow}G" "$largest_dev" || { echo "ERROR: ntfsresize failed (install ntfs-3g on the ISO)." >&2; exit 1; }
+    fi
     fs_new_end=$(parted -s "$DEV" unit B print | awk -v n="$part_num" -v g="${grow}" '$1==n{split($3,a,"B"); split($2,b,"B"); end=(b[1]+(a[1]-b[1])-(g*1073741824)); printf "%d", end}')
     parted -s "$DEV" resizepart "$part_num" "${fs_new_end}B"
-    parted -s "$DEV" mkpart "COOL" ext4 "$((fs_new_end/1048576))MiB" 100%
-    if [[ $DEV == /dev/nvme* ]]; then
-      EFI_PART="${DEV}p1"; ROOT_PART="${DEV}p$(($(lsblk -n -o NAME "$DEV" | wc -l) - 1))"
-    else
-      EFI_PART="${DEV}1"; ROOT_PART="${DEV}$(lsblk -n -o NAME "$DEV" | wc -l)"
-    fi
-    # ensure an EFI partition exists and is bootable
-    if ! blkid -s TYPE -o value "$EFI_PART" 2>/dev/null | grep -q "vfat\|fat"; then
+    parted -s "$DEV" mkpart "COOL" btrfs "$((fs_new_end/1048576))MiB" 100%
+    # find the EFI System Partition by GUID (not assumed to be partition 1)
+    EFI_PART=$(find_esp)
+    ROOT_PART="${DEV}$(lsblk -n -o NAME "$DEV" | wc -l)"
+    [[ $DEV == /dev/nvme* ]] && ROOT_PART="${DEV}p$(lsblk -n -o NAME "$DEV" | wc -l)"
+    if [[ -z "$EFI_PART" ]]; then
       echo "== No EFI partition found; creating one."
       parted -s "$DEV" mkpart "EFI" fat32 1MiB 1025MiB
       parted -s "$DEV" set "$(lsblk -n -o NAME "$DEV" | wc -l)" esp on
       EFI_PART="/dev/${disk}$(lsblk -n -o NAME "$DEV" | wc -l)"
       mkfs.fat -F32 "$EFI_PART"
+    else
+      echo "  Using EFI partition: $EFI_PART"
     fi
     mkfs.btrfs -f "$ROOT_PART"
     ;;
