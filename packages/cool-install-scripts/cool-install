@@ -348,6 +348,19 @@ echo "$username:$pass1" | arch-chroot "$TARGET_ROOT" chpasswd
 echo "root:$pass1" | arch-chroot "$TARGET_ROOT" chpasswd
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' "$TARGET_ROOT/etc/sudoers"
 
+# zshrc for new users (auto-start Hyprland on the bare console when no DM)
+if [[ $DM == "none" ]]; then
+  cat > "$TARGET_ROOT/etc/skel/.zshrc" <<'ZSH'
+# Cool Arch: auto-start Hyprland when logging in at the real console (tty1),
+# but not inside a pty (terminal emulator, SSH, etc.)
+if [[ "$(tty)" == "/dev/tty1" ]] && [[ "$(tty)" != /dev/pts/* ]]; then
+  exec Hyprland
+fi
+ZSH
+else
+  : > "$TARGET_ROOT/etc/skel/.zshrc"
+fi
+
 # services
 arch-chroot "$TARGET_ROOT" systemctl enable NetworkManager
 if [[ $DM != "none" ]]; then
