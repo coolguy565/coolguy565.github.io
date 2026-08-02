@@ -31,6 +31,8 @@ jobs:
 
       - name: Update system and install build tools
         run: |
+          pacman-key --init
+          pacman-key --populate archlinux
           pacman -Syu --noconfirm
           pacman -S --noconfirm --needed base-devel git gnupg sudo github-cli
 
