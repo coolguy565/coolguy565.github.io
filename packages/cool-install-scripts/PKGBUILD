@@ -11,12 +11,12 @@ depends=(
   'waybar'
   'hyprpaper'
   'hyprshutdown'
-  'walker'
   'foot'
   'mako'
   'figlet'
 )
 optdepends=(
+  'walker: app launcher (from this repo)'
   'thunar: default file manager'
   'firefox: default browser'
   'networkmanager: networking'
