@@ -62,6 +62,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "$RELEASE_TAG" --clobber \
+            repo/myrepo.db repo/myrepo.db.sig \
             repo/myrepo.db.tar.gz repo/myrepo.db.tar.gz.sig \
             repo/myrepo.files.tar.gz repo/myrepo.files.tar.gz.sig \
             repo/myrepo.asc \
