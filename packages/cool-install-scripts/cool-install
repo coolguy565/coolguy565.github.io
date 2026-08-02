@@ -562,6 +562,7 @@ arch-chroot "$TARGET_ROOT" chown -R "$username:$username" "/home/$username"
 
 # Secure Boot / TPM2 setup (shim + sbctl keys)
 SECURE_BOOT=0
+SB_SIGN=0
 if [[ $FIRMWARE == UEFI ]]; then
   echo
   echo "== Secure Boot + TPM2"
@@ -572,11 +573,17 @@ if [[ $FIRMWARE == UEFI ]]; then
     arch-chroot "$TARGET_ROOT" pacman -S --noconfirm sbctl shim-signed tpm2-tools tpm2-tss
     arch-chroot "$TARGET_ROOT" systemctl enable tpm2.target 2>/dev/null || true
     arch-chroot "$TARGET_ROOT" sbctl create-keys
-    if arch-chroot "$TARGET_ROOT" sbctl enroll-keys --microsoft; then
-      echo "  Secure Boot keys enrolled."
+    if arch-chroot "$TARGET_ROOT" sbctl status 2>/dev/null | grep -qi "Setup Mode:.*enabled"; then
+      # firmware in setup mode: enroll our keys + Microsoft keys (Windows stays bootable)
+      arch-chroot "$TARGET_ROOT" sbctl enroll-keys --microsoft \
+        && echo "  Enrolled Cool Arch + Microsoft keys." \
+        || echo "  WARNING: key enrollment failed."
+      SB_SIGN=1
     else
-      echo "  WARNING: could not enroll keys (firmware not in Setup Mode?)."
-      echo "  You can enroll later with: sbctl enroll-keys --microsoft"
+      # not in setup mode: can't enroll our keys, rely on the Microsoft-signed shim chain
+      echo "  Not in Setup Mode - relying on the Microsoft-signed shim chain."
+      echo "  (If it fails to boot, disable Secure Boot or enroll keys from firmware settings.)"
+      SB_SIGN=0
     fi
   fi
 fi
@@ -608,8 +615,8 @@ case "$BOOTLOADER" in
     arch-chroot "$TARGET_ROOT" grub-mkconfig -o /boot/grub/grub.cfg \
       || { echo "ERROR: grub-mkconfig failed." >&2; exit 1; }
 
-    # sign the boot chain for Secure Boot
-    if [[ $SECURE_BOOT -eq 1 && $FIRMWARE == UEFI ]]; then
+    # sign the boot chain with our keys (only when they were enrolled)
+    if [[ $SB_SIGN -eq 1 && $FIRMWARE == UEFI ]]; then
       echo "== Signing boot files with sbctl"
       arch-chroot "$TARGET_ROOT" sbctl sign /boot/grub/grubx64.efi || true
       for k in "$TARGET_ROOT"/usr/lib/modules/*/vmlinuz; do
