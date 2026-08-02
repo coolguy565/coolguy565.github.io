@@ -298,7 +298,7 @@ grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
   pacman-key --add /tmp/cool.asc
   pacman-key --lsign-key "$REPO_KEY"
 }
-pacman -Sy
+pacman -Syy
 
 echo "== Installing packages (this takes a while)"
 pacstrap -K "$TARGET_ROOT" "${PACKAGES[@]}"
