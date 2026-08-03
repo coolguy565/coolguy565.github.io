@@ -176,17 +176,40 @@ class SysCommandWorker:
 					self.ended = True
 					break
 
-			if self.ended or (not got_output and not _pid_exists(self.pid)):
-				self.ended = True
+			# Robust exit detection: reap the child with a non-blocking waitpid.
+			# The epoll/_pid_exists path can hang (or leave exit_code as None)
+			# when the pty never signals EPOLLHUP or the child lingers as a
+			# zombie - a completed command would then be reported as
+			# "exited with abnormal exit code [None]".
+			if not self.ended:
+				try:
+					wait_pid, wait_status = os.waitpid(self.pid, os.WNOHANG)
+					if wait_pid != 0:
+						self.ended = True
+						self.exit_code = os.waitstatus_to_exitcode(wait_status)
+				except ChildProcessError:
+					pass
+
+			# Once we know the command is done, always reap to learn the real
+			# exit code - the pty EOF/EPOLLHUP path sets ended but not the code.
+			if self.ended and self.exit_code is None:
 				try:
 					wait_status = os.waitpid(self.pid, 0)[1]
 					self.exit_code = os.waitstatus_to_exitcode(wait_status)
 				except ChildProcessError:
+					self.exit_code = 1
+
+			# drain any output still buffered in the pty after the child exits
+			if self.ended:
+				while True:
 					try:
-						wait_status = os.waitpid(self.child_fd, 0)[1]
-						self.exit_code = os.waitstatus_to_exitcode(wait_status)
-					except ChildProcessError:
-						self.exit_code = 1
+						chunk = os.read(self.child_fd, 8192)
+						if not chunk:
+							break
+						self.peak(chunk)
+						self._trace_log += chunk
+					except OSError:
+						break
 
 	def execute(self) -> bool:
 		import pty
