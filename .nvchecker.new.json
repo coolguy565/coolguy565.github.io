@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "data": {
+    "google-chrome": {
+      "version": "151.0.7922.71"
+    },
+    "yay": {
+      "version": "v13.0.1",
+      "gitref": "refs/tags/v13.0.1",
+      "url": "https://github.com/Jguer/yay/releases/tag/v13.0.1"
+    }
+  }
+}
