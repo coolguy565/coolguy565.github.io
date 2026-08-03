@@ -693,7 +693,7 @@ class Installer:
 				raise ServiceException(f'Unable to disable service {service}: {err}')
 
 	def run_command(self, cmd: str, peek_output: bool = False) -> SysCommand:
-		return SysCommand(f'arch-chroot -S {self.target} {cmd}', peek_output=peek_output)
+		return SysCommand(f'arch-chroot {self.target} {cmd}', peek_output=peek_output)
 
 	def arch_chroot(self, cmd: str, run_as: str | None = None, peek_output: bool = False) -> SysCommand:
 		if run_as:
@@ -702,7 +702,7 @@ class Installer:
 		return self.run_command(cmd, peek_output=peek_output)
 
 	def _chroot_argv(self, *args: str) -> list[str]:
-		return ['arch-chroot', '-S', str(self.target), *args]
+		return ['arch-chroot', str(self.target), *args]
 
 	def drop_to_shell(self) -> None:
 		subprocess.check_call(f'arch-chroot {self.target}', shell=True)
@@ -2067,6 +2067,6 @@ def run_custom_user_commands(commands: list[str], installation: Installer) -> No
 		with open(chroot_path, 'w') as user_script:
 			user_script.write(command)
 
-		SysCommand(f'arch-chroot -S {installation.target} bash {script_path}')
+		SysCommand(f'arch-chroot {installation.target} bash {script_path}')
 
 		os.unlink(chroot_path)

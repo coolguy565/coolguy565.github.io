@@ -51,11 +51,12 @@ pacman -Syy
 # every updated package, bigger than the ISO's 256M airootfs/cowspace)
 #   glibc:         repo packages are CI-built against the latest glibc; older
 #                  ISOs would hit "GLIBC_2.42 not found" without upgrading it
+#   arch-install-scripts: older ISOs lack arch-chroot -S (added in v30)
 #   python:        older ISOs ship python < 3.14, but our vendored archinstall
 #                  (archinstall-cool) targets 3.14+ syntax
 #   curl:          all our downloads depend on it
 #   archinstall-cool: our trimmed, vendored archinstall (never the ISO's)
-pacman -S --needed --noconfirm glibc python curl archinstall-cool
+pacman -S --needed --noconfirm glibc arch-install-scripts python curl archinstall-cool
 
 # self-heal: upgrading python orphans the ISO's old-python packages (they stay
 # in the 3.13 site-packages). For every python module we need, try to import it
