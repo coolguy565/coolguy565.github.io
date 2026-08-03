@@ -1645,4 +1645,12 @@ class LsblkInfo(BaseModel):
 
 	@classmethod
 	def fields(cls) -> list[str]:
-		return [field.alias or name for name, field in cls.model_fields.items() if name != 'children']
+		# hardcoded lsblk columns matching this model's fields - keeps lsblk
+		# working even if pydantic's model_fields introspection misbehaves on
+		# some python builds (empty --output => "requires an argument")
+		return [
+			'name', 'path', 'pkname', 'log-sec', 'size', 'pttype', 'ptuuid',
+			'rota', 'tran', 'partn', 'partuuid', 'parttype', 'uuid', 'fstype',
+			'fsver', 'fsavail', 'fsuse%', 'type', 'mountpoint', 'mountpoints',
+			'fsroots',
+		]
