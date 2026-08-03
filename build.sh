@@ -115,7 +115,13 @@ for pkgdir in ../packages/*/; do
   [[ -f "$pkgdir/PKGBUILD" ]] || continue
   pnames=$(cd "$pkgdir" && set +eu && source PKGBUILD 2>/dev/null && echo "${pkgname[@]}" || true)
   for pn in $pnames; do
-    for old in $(ls ${pn}-*.pkg.tar.zst 2>/dev/null | sort -V | head -n -1); do
+    shopt -s nullglob
+    matches=( ${pn}-*.pkg.tar.zst )
+    shopt -u nullglob
+    # skip packages that failed to build (no tarballs) - NEVER let an empty
+    # glob fall through to `ls` (that would list repo/ and wipe the DB/asc)
+    [[ ${#matches[@]} -gt 0 ]] || continue
+    for old in $(printf '%s\n' "${matches[@]}" | sort -V | head -n -1); do
       echo "removing stale $old"
       rm -f "$old" "${old}.sig"
     done
