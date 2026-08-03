@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.5
+Type=Application
+Name=Balena Etcher
+Exec=balena-etcher %U
+Icon=balena-etcher
+Categories=Utility;
