@@ -6,43 +6,50 @@ import shutil
 import subprocess
 import sys
 
-print("== lsblk diagnostic ==")
-print("python      :", sys.version.split()[0])
-print("cool-dir    :", os.path.isdir("/opt/cool-archinstall"))
+print("== lsblk diag ==")
+print("py      :", sys.version.split()[0])
+print("cool    :", os.path.isdir("/opt/cool-archinstall"))
 
 cool = "/opt/cool-archinstall"
 if os.path.isdir(cool) and cool not in sys.path:
     sys.path.insert(0, cool)
 
 fields = []
+sc = None
 try:
     import archinstall
-    print("archinstall  :", archinstall.__file__)
+    print("arch    :", archinstall.__file__)
     from archinstall.lib.models.device import LsblkInfo
     fields = LsblkInfo.fields()
-    print("fields       :", fields)
+    print("fields  :", len(fields))
+    from archinstall.lib.command import SysCommand
+    sc = SysCommand
 except Exception as e:
-    print("archinstall  : FAILED ->", type(e).__name__, e)
+    print("arch    : FAILED ->", type(e).__name__, e)
 
 if not fields:
     fields = ["name", "path"]
-
 cols = ",".join(fields)
 cmd = ["lsblk", "--json", "--bytes", "--output", cols]
-print("cmd          :", " ".join(cmd))
-print("lsblk        :", shutil.which("lsblk"))
-try:
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    print("rc           :", r.returncode)
-    print("stderr       :", (r.stderr or "").strip()[:300])
-    print("stdout[:120] :", (r.stdout or "").strip()[:120])
-except Exception as e:
-    print("run error    :", type(e).__name__, e)
 
-try:
-    v = subprocess.run(["lsblk", "--version"], capture_output=True, text=True, timeout=10)
-    print("version      :", (v.stdout or v.stderr or "").strip())
-except Exception as e:
-    print("version      :", type(e).__name__, e)
+print("cmd     :", " ".join(cmd))
+print("lsblk   :", shutil.which("lsblk"))
+
+r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+print("sub-rc  :", r.returncode)
+print("sub-err :", (r.stderr or "").strip()[:200])
+
+if sc is not None:
+    try:
+        out = sc(cmd).output(remove_cr=False)
+        print("sc-rc   : 0")
+        print("sc-err  : <none>")
+        print("sc-out  :", str(out)[:80].strip())
+    except Exception as e:
+        print("sc-rc   : FAILED ->", type(e).__name__, str(e)[:200])
+        if hasattr(e, "exit_code"):
+            print("sc-code :", e.exit_code)
+        if hasattr(e, "worker_log") and getattr(e, "worker_log", b""):
+            print("sc-err  :", e.worker_log.decode(errors="ignore")[-200:])
 
 print("== end ==")
