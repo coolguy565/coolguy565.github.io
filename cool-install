@@ -474,6 +474,11 @@ mount "$EFI_PART" "$TARGET_ROOT/boot"
 # ---------- 9. repo + pacstrap ----------
 step "repo + pacstrap"
 echo "== Adding coolguy565 repo"
+# GitHub Releases + pacman hit curl error 63 (Maximum file size exceeded) on HTTP/2;
+# force HTTP/1.1 for all downloads
+grep -q "^XferCommand" /etc/pacman.conf || {
+  printf 'XferCommand = /usr/bin/curl --http1.1 -L -C - -f -o %%o %%u\n' >> /etc/pacman.conf
+}
 grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
   printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
   curl -fsSL -o /tmp/cool.asc "$REPO_URL/$REPO_NAME.asc"
