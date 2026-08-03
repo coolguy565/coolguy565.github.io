@@ -51,30 +51,39 @@ pacman -Syy
 # every updated package, bigger than the ISO's 256M airootfs/cowspace)
 #   python:        older ISOs ship python < 3.14, but our vendored archinstall
 #                  (archinstall-cool) targets 3.14+ syntax
-#   python-pyparted / python-pydantic / python-cryptography:
-#                  MUST be named explicitly - the ISO's copies are built for the
-#                  OLD python, so upgrading python alone leaves them orphaned in
-#                  the old site-packages (No module named 'parted')
 #   curl:          all our downloads depend on it
 #   archinstall-cool: our trimmed, vendored archinstall (never the ISO's)
-pacman -S --needed --noconfirm python python-pyparted python-pydantic python-cryptography curl archinstall-cool
+pacman -S --needed --noconfirm python curl archinstall-cool
 
-# verify the python runtime deps are actually importable before launching
-if ! PYTHONPATH=/opt/cool-archinstall python3 - <<'PY'; then
+# self-heal: upgrading python orphans the ISO's old-python packages (they stay
+# in the 3.13 site-packages). For every python module we need, try to import it
+# and install the matching package if it's missing/broken.
+heal() {
+  local mod="$1" pkg="$2"
+  if ! PYTHONPATH=/opt/cool-archinstall python3 -c "import $mod" >/dev/null 2>&1; then
+    echo "  installing $pkg (needed for $mod)..."
+    pacman -S --noconfirm "$pkg"
+  fi
+}
+heal parted python-pyparted
+heal pydantic python-pydantic
+heal pydantic_core python-pydantic-core
+heal annotated_types python-annotated-types
+heal typing_extensions python-typing-extensions
+heal cryptography python-cryptography
+
+# final check: archinstall itself must import cleanly before we launch
+if ! PYTHONPATH=/opt/cool-archinstall python3 -c "
 import sys
-print(f"python {sys.version.split()[0]}")
-ok = True
-for m in ("parted", "pydantic", "cryptography"):
-    try:
-        __import__(m)
-        print(f"  {m}: OK")
-    except Exception as e:
-        print(f"  {m}: {type(e).__name__}: {e}")
-        ok = False
-sys.exit(0 if ok else 1)
-PY
-  echo "ERROR: python runtime deps are broken." >&2
-  echo "Paste the output above for diagnosis." >&2
+sys.path.insert(0, '/opt/cool-archinstall')
+from archinstall.lib.disk.device_handler import device_handler
+from archinstall.lib.models.device import DiskLayoutConfiguration
+print('archinstall import OK')
+"; then
+  echo "ERROR: archinstall still fails to import." >&2
+  echo "python: $(python3 --version)" >&2
+  pacman -Q python python-pyparted python-pydantic python-pydantic-core python-cryptography archinstall-cool >&2 2>/dev/null || true
+  echo "Paste this output for diagnosis." >&2
   exit 1
 fi
 
