@@ -1,6 +1,6 @@
 pkgname=archinstall-cool
 pkgver=4.4
-pkgrel=2
+pkgrel=3
 pkgdesc="Trimmed archinstall (core install path only) for the Cool Arch installer; installed to /opt/cool-archinstall"
 arch=('any')
 url="https://github.com/coolguy565/coolguy565.github.io"

@@ -47,9 +47,13 @@ grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
 }
 pacman -Syy
 
-# our installer runs on a vendored, trimmed archinstall - install it so the
-# ISO's own archinstall version can never break the import
-pacman -S --noconfirm archinstall-cool
+# update ONLY critical packages with targeted -S (a full -Syu would download
+# every updated package, bigger than the ISO's 256M airootfs/cowspace)
+#   python:        older ISOs ship python < 3.14, but our vendored archinstall
+#                  (archinstall-cool) targets 3.14+ syntax
+#   curl:          all our downloads depend on it
+#   archinstall-cool: our trimmed, vendored archinstall (never the ISO's)
+pacman -S --needed --noconfirm python curl archinstall-cool
 
 # fetch and run the archinstall-based installer
 tmp=$(mktemp)
