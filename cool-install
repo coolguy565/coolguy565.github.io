@@ -527,6 +527,20 @@ def main() -> None:
             hostname=hostname,
             locale_config=LocaleConfiguration(kb_layout=kb_layout, sys_lang=locale, sys_enc="UTF-8"),
         )
+
+        # ensure the chroot's pacman can reach the coolguy565 repo over HTTP/1.1
+        # BEFORE any chroot package downloads run - GitHub's HTTP/2 triggers
+        # curl error 63 "Maximum file size exceeded"
+        target_conf = mountpoint / "etc/pacman.conf"
+        tconf = target_conf.read_text()
+        if "XferCommand" not in tconf:
+            with target_conf.open("a") as f:
+                f.write("XferCommand = /usr/bin/curl --http1.1 -L -C - -f -o %o %u\n")
+            tconf = target_conf.read_text()
+        if f"[{REPO_NAME}]" not in tconf:
+            with target_conf.open("a") as f:
+                f.write(f"\n[{REPO_NAME}]\nSigLevel = Required DatabaseOptional\nServer = {REPO_URL}\n")
+
         installation.set_timezone(timezone)
         installation.set_keyboard_language(kb_layout)
         installation.add_bootloader(bl)
@@ -538,12 +552,8 @@ def main() -> None:
         installation.create_users(user)
 
         # ---------- 12. configure ----------
-        # persist the coolguy565 repo + trust its key inside the new system
-        target_conf = mountpoint / "etc/pacman.conf"
-        tconf = target_conf.read_text()
-        if f"[{REPO_NAME}]" not in tconf:
-            with target_conf.open("a") as f:
-                f.write(f"\n[{REPO_NAME}]\nSigLevel = Required DatabaseOptional\nServer = {REPO_URL}\n")
+        # trust the coolguy565 key inside the new system (repo + XferCommand
+        # were already written to the target pacman.conf above)
         asc = "/tmp/cool.asc"
         urllib.request.urlretrieve(f"{REPO_URL}/{REPO_NAME}.asc", asc)
         shutil.copy(asc, mountpoint / "tmp/cool.asc")
