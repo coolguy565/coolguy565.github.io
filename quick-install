@@ -51,9 +51,32 @@ pacman -Syy
 # every updated package, bigger than the ISO's 256M airootfs/cowspace)
 #   python:        older ISOs ship python < 3.14, but our vendored archinstall
 #                  (archinstall-cool) targets 3.14+ syntax
+#   python-pyparted / python-pydantic / python-cryptography:
+#                  MUST be named explicitly - the ISO's copies are built for the
+#                  OLD python, so upgrading python alone leaves them orphaned in
+#                  the old site-packages (No module named 'parted')
 #   curl:          all our downloads depend on it
 #   archinstall-cool: our trimmed, vendored archinstall (never the ISO's)
-pacman -S --needed --noconfirm python curl archinstall-cool
+pacman -S --needed --noconfirm python python-pyparted python-pydantic python-cryptography curl archinstall-cool
+
+# verify the python runtime deps are actually importable before launching
+if ! PYTHONPATH=/opt/cool-archinstall python3 - <<'PY'; then
+import sys
+print(f"python {sys.version.split()[0]}")
+ok = True
+for m in ("parted", "pydantic", "cryptography"):
+    try:
+        __import__(m)
+        print(f"  {m}: OK")
+    except Exception as e:
+        print(f"  {m}: {type(e).__name__}: {e}")
+        ok = False
+sys.exit(0 if ok else 1)
+PY
+  echo "ERROR: python runtime deps are broken." >&2
+  echo "Paste the output above for diagnosis." >&2
+  exit 1
+fi
 
 # fetch and run the archinstall-based installer
 tmp=$(mktemp)
