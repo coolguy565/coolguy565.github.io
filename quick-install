@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cool Arch quick install - adds the coolguy565 repo, then runs cool-install.
+# Cool Arch quick install - adds the coolguy565 repo, then runs cool-install (archinstall-based).
 # Usage: curl -fsSL https://coolguy565.github.io/quick-install | bash
 set -euo pipefail
 
@@ -7,13 +7,12 @@ REPO_NAME="coolguy565"
 REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
 REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
 COOL_INSTALL_URL="https://coolguy565.github.io/cool-install"
+SELF_URL="https://coolguy565.github.io/quick-install"
 
 # make sure figlet is available for the banner
 if ! command -v figlet >/dev/null 2>&1; then
-  echo "== Installing figlet for the banner =="
-  (command -v sudo >/dev/null 2>&1 && sudo pacman -Sy --noconfirm figlet) \
-    || pacman -Sy --noconfirm figlet \
-    || echo "  (figlet install failed - using built-in ASCII banner)"
+  (command -v sudo >/dev/null 2>&1 && sudo pacman -Sy --noconfirm figlet >/dev/null 2>&1) \
+    || pacman -Sy --noconfirm figlet >/dev/null 2>&1 || true
 fi
 
 banner() {
@@ -34,22 +33,12 @@ BANNER
 }
 banner
 
-# build the modified cool-install: repo setup first, then the real script
-tmp=$(mktemp)
-trap 'rm -f "$tmp"' EXIT
-
-{
-  cat <<'REPO_SETUP'
-echo "== Starting Cool Arch install..."
-set -euo pipefail
-REPO_NAME="coolguy565"
-REPO_KEY="E36138CC5F015492A1D620581C4F28ACC1A18345"
-REPO_URL="https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
+# self-elevate to root
 if [[ $EUID -ne 0 ]]; then
-  echo "Run as root." >&2
-  exit 1
+  exec sudo bash -c "$(curl -fsSL "$SELF_URL")"
 fi
-echo "==> Adding $REPO_NAME repo"
+
+# add the coolguy565 repo
 grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
   printf '\n[%s]\nSigLevel = Required DatabaseOptional\nServer = %s\n' "$REPO_NAME" "$REPO_URL" >> /etc/pacman.conf
   curl -fsSL -o /tmp/cool.asc "$REPO_URL/$REPO_NAME.asc"
@@ -57,11 +46,9 @@ grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
   pacman-key --lsign-key "$REPO_KEY"
 }
 pacman -Syy
-echo "==> coolguy565 repo ready"
-REPO_SETUP
 
-  curl -fsSL "$COOL_INSTALL_URL"
-} > "$tmp"
-
-# run it with stdin from the terminal so interactive prompts work even when piped
-exec sudo bash "$tmp" < /dev/tty
+# fetch and run the archinstall-based installer
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+curl -fsSL "$COOL_INSTALL_URL" -o "$tmp"
+exec python3 "$tmp" < /dev/tty
