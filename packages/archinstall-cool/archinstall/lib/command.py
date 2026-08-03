@@ -248,6 +248,13 @@ class SysCommandWorker:
 
 
 class SysCommand:
+	"""Run a one-shot command via subprocess (pipes).
+
+	Replaces the pty-based worker for non-interactive commands - some
+	environments (e.g. CollabVM) have pty quirks that made the old
+	implementation report bogus "abnormal exit code [None]" or hang.
+	"""
+
 	def __init__(
 		self,
 		cmd: str | list[str],
@@ -256,102 +263,98 @@ class SysCommand:
 		working_directory: str = './',
 		remove_vt100_escape_codes_from_lines: bool = True,
 	):
+		if isinstance(cmd, str):
+			cmd = shlex.split(cmd)
+
+		if cmd and not cmd[0].startswith(('/', './')):
+			cmd[0] = locate_binary(cmd[0])
+
 		self.cmd = cmd
 		self.peek_output = peek_output
-		self.environment_vars = environment_vars
+		self.environment_vars = {'LC_ALL': 'C'}
+		if environment_vars:
+			self.environment_vars.update(environment_vars)
 		self.working_directory = working_directory
 		self.remove_vt100_escape_codes_from_lines = remove_vt100_escape_codes_from_lines
 
-		self.session: SysCommandWorker | None = None
-		self.create_session()
+		self._trace_log = b''
+		self._trace_log_pos = 0
+		self.exit_code: int | None = None
+		self.session = None  # kept for API compatibility
 
-	def __enter__(self) -> SysCommandWorker | None:
-		return self.session
+		try:
+			proc = subprocess.Popen(
+				self.cmd,
+				stdin=subprocess.DEVNULL,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.STDOUT,
+				cwd=self.working_directory if self.working_directory != './' else None,
+				env={**os.environ, **self.environment_vars},
+			)
+			stdout, _ = proc.communicate()
+		except FileNotFoundError:
+			error(f'{self.cmd[0]} does not exist.')
+			self.exit_code = 1
+		else:
+			self._trace_log = stdout
+			self.exit_code = proc.returncode
+			if self.peek_output:
+				sys.stdout.write(stdout.decode(errors='backslashreplace'))
+				sys.stdout.flush()
+
+		if self.exit_code != 0:
+			raise SysCallError(
+				f'{self.cmd} exited with abnormal exit code [{self.exit_code}]: '
+				f'{self._trace_log.decode("utf-8", errors="backslashreplace")[-500:]}',
+				self.exit_code,
+				worker_log=self._trace_log,
+			)
+
+	def __enter__(self) -> Self:
+		return self
 
 	def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> None:
-		# b''.join(sys_command('sync')) # No need to, since the underlying fs() object will call sync.
-		# TODO: https://stackoverflow.com/questions/28157929/how-to-safely-handle-an-exception-inside-a-context-manager
-
-		if exc_type is not None:
-			error(str(exc_value))
+		pass
 
 	def __iter__(self, *args: list[Any], **kwargs: dict[str, Any]) -> Iterator[bytes]:
-		if self.session:
-			yield from self.session
+		last_line = self._trace_log.rfind(b'\n')
+		lines = filter(None, self._trace_log[self._trace_log_pos:last_line].splitlines())
+		for line in lines:
+			if self.remove_vt100_escape_codes_from_lines:
+				line = clear_vt100_escape_codes(line)
+			yield line + b'\n'
+		self._trace_log_pos = last_line
+
+	def __contains__(self, key: bytes) -> bool:
+		assert isinstance(key, bytes)
+		index = self._trace_log.find(key, self._trace_log_pos)
+		if index >= 0:
+			self._trace_log_pos += index + len(key)
+			return True
+		return False
 
 	def __getitem__(self, key: slice) -> bytes:
-		if not self.session:
-			raise KeyError('SysCommand() does not have an active session.')
-		elif type(key) is slice:
-			start = key.start or 0
-			end = key.stop or len(self.session._trace_log)
+		if type(key) is slice:
+			return self._trace_log[key]
+		raise ValueError("SysCommand() doesn't have key & value pairs, only slices.")
 
-			return self.session._trace_log[start:end]
-		else:
-			raise ValueError("SysCommand() doesn't have key & value pairs, only slices, SysCommand('ls')[:10] as an example.")
-
-	@override
 	def __repr__(self, *args: list[Any], **kwargs: dict[str, Any]) -> str:
 		return self.decode('UTF-8', errors='backslashreplace') or ''
 
-	def create_session(self) -> bool:
-		"""
-		Initiates a :ref:`SysCommandWorker` session in this class ``.session``.
-		It then proceeds to poll the process until it ends, after which it also
-		clears any printed output if ``.peek_output=True``.
-		"""
-		if self.session:
-			return True
-
-		with SysCommandWorker(
-			self.cmd,
-			peek_output=self.peek_output,
-			environment_vars=self.environment_vars,
-			remove_vt100_escape_codes_from_lines=self.remove_vt100_escape_codes_from_lines,
-			working_directory=self.working_directory,
-		) as session:
-			self.session = session
-
-			while not self.session.ended:
-				self.session.poll()
-
-		if self.peek_output:
-			sys.stdout.write('\n')
-			sys.stdout.flush()
-
-		return True
-
 	def decode(self, encoding: str = 'utf-8', errors: str = 'backslashreplace', strip: bool = True) -> str:
-		if not self.session:
-			raise ValueError('No session available to decode')
-
-		val = self.session._trace_log.decode(encoding, errors=errors)
-
+		val = self._trace_log.decode(encoding, errors=errors)
 		if strip:
 			return val.strip()
 		return val
 
 	def output(self, remove_cr: bool = True) -> bytes:
-		if not self.session:
-			raise ValueError('No session available')
-
 		if remove_cr:
-			return self.session._trace_log.replace(b'\r\n', b'\n')
-
-		return self.session._trace_log
-
-	@property
-	def exit_code(self) -> int | None:
-		if self.session:
-			return self.session.exit_code
-		else:
-			return None
+			return self._trace_log.replace(b'\r\n', b'\n')
+		return self._trace_log
 
 	@property
-	def trace_log(self) -> bytes | None:
-		if self.session:
-			return self.session._trace_log
-		return None
+	def trace_log(self) -> bytes:
+		return self._trace_log
 
 
 def run(
