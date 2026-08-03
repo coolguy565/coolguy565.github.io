@@ -24,6 +24,31 @@
             font-family: Arial, sans-serif;
             font-weight: normal;
         }
+        .shaking {
+            animation: shake 0.5s infinite;
+        }
+
+        @keyframes shake {
+            0% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            50% {
+                transform: translateX(5px);
+            }
+
+            75% {
+                transform: translateX(-5px);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -33,5 +58,8 @@
   <h4>and i have to do the 3 AM challenge</h4>
   <hr>
   <h1><marquee>a bit of styling</marquee></h1>
+  <hr>
+  <br>
+  <h1 class="shaking">LET ME SLEEP</h1>
 </body>
 </html>
