@@ -109,12 +109,18 @@ def run(cmd: list[str], check: bool = True) -> None:
 
 
 def bootloader_value(name: str) -> Bootloader:
-    """Resolve a bootloader from its enum name, tolerant of naming drift."""
-    for cand in (name, name.upper(), name.lower(), "Systemd" if name == "systemd-boot" else None):
-        if cand is None:
-            continue
-        if (b := getattr(Bootloader, cand, None)) is not None:
-            return b
+    """Resolve a bootloader name to the archinstall enum, tolerant of casing."""
+    norm = name.strip().lower().replace("-", "").replace("_", "").replace(" ", "")
+    for member in Bootloader:
+        if member.name.lower() == norm:
+            return member
+    aliases = {
+        "grub": Bootloader.Grub,
+        "systemdboot": Bootloader.Systemd,
+        "systemd": Bootloader.Systemd,
+    }
+    if norm in aliases:
+        return aliases[norm]
     raise ValueError(f"Unknown bootloader: {name}")
 
 
