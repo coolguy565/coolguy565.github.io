@@ -1,4 +1,5 @@
 import shutil
+import sys
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -18,7 +19,16 @@ def _fetch_lsblk_info(
 	reverse: bool = False,
 	full_dev_path: bool = False,
 ) -> LsblkOutput:
-	cmd = ['lsblk', '--json', '--bytes', '--output', ','.join(LsblkInfo.fields())]
+	fields = LsblkInfo.fields()
+	if not fields:
+		# never let lsblk see an empty --output (=> "option --output requires an argument")
+		fields = [
+			'name', 'path', 'pkname', 'log-sec', 'size', 'pttype', 'ptuuid',
+			'rota', 'tran', 'partn', 'partuuid', 'parttype', 'uuid', 'fstype',
+			'fsver', 'fsavail', 'fsuse%', 'type', 'mountpoint', 'mountpoints',
+			'fsroots',
+		]
+	cmd = ['lsblk', '--json', '--bytes', '--output', ','.join(fields)]
 
 	if reverse:
 		cmd.append('--inverse')
