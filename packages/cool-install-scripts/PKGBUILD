@@ -1,6 +1,6 @@
 pkgname=cool-install-scripts
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Cool Arch Linux installer and desktop configs (Hyprland lua, waybar, hyprpaper, walker, poweroff)"
 arch=('any')
 url="https://github.com/coolguy565/coolguy565.github.io"
@@ -22,7 +22,7 @@ optdepends=(
   'networkmanager: networking'
 )
 source=(
-  'cool-install'
+  'cool-install.py'
   'cool-poweroff'
   'PowerOff.desktop'
   'hyprland.lua'
@@ -57,7 +57,7 @@ sha256sums=(
 )
 
 package() {
-  install -Dm755 cool-install "$pkgdir/usr/bin/cool-install"
+  install -Dm755 cool-install.py "$pkgdir/usr/bin/cool-install"
   install -Dm755 cool-poweroff "$pkgdir/usr/bin/cool-poweroff"
   install -Dm644 PowerOff.desktop "$pkgdir/usr/share/applications/PowerOff.desktop"
 

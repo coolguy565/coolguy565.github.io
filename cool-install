@@ -49,6 +49,8 @@ REPO_NAME = "coolguy565"
 REPO_KEY = "E36138CC5F015492A1D620581C4F28ACC1A18345"
 REPO_URL = "https://github.com/coolguy565/coolguy565.github.io/releases/download/coolguy565"
 
+VERSION = "2.0-alpha0.1"
+
 # installed after the base system (base/sudo/linux-firmware are handled by archinstall)
 PACKAGES = [
     "base-devel", "linux-cool-headers", "btrfs-progs",
@@ -69,6 +71,21 @@ def figlet(text: str) -> None:
         subprocess.run(["figlet", "-f", "slant", text])
     else:
         print(BANNER)
+
+
+def pre_release_strip() -> None:
+    """Literal rectangle announcing this is a pre-release build."""
+    inner = 50
+    title = f"  COOL ARCH  {VERSION}  -  PRE-RELEASE BUILD  ".center(inner)
+    note = "Pre-release build - expect bugs and rough edges".center(inner)
+    help = "Report issues so we can reach 2.0 stable!".center(inner)
+    print()
+    print("\033[33m┌" + "─" * inner + "┐")
+    print("│" + title + "│")
+    print("│" + note + "│")
+    print("│" + help + "│")
+    print("└" + "─" * inner + "┘\033[0m")
+    print()
 
 
 def ask(prompt: str, default: str = "") -> str:
@@ -187,6 +204,7 @@ def main() -> None:
 
     # ---------- 1. banner ----------
     figlet("Cool Arch")
+    pre_release_strip()
 
     # ---------- 2. language / keyboard ----------
     print("== Language")
