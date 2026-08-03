@@ -511,7 +511,7 @@ def main() -> None:
         device_modification.add_partition(root_part)
 
     disk_config = DiskLayoutConfiguration(
-        config_type=DiskLayoutType.Btrfs,
+        config_type=DiskLayoutType.Default,
         device_modifications=[device_modification],
     )
 
