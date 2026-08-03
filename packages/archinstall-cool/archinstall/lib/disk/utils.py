@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -34,6 +35,14 @@ def _fetch_lsblk_info(
 		# Get the output minus the message/info from lsblk if it returns a non-zero exit code.
 		if err.worker_log:
 			debug(f'Error calling lsblk: {err.worker_log.decode()}')
+
+		# diagnostics for the lsblk --output failure (cool-install troubleshooting)
+		print(f'[lsblk-diag] command : {" ".join(cmd)}', file=sys.stderr)
+		print(f'[lsblk-diag] fields() : {LsblkInfo.fields()!r}', file=sys.stderr)
+		print(f'[lsblk-diag] argv     : {cmd!r}', file=sys.stderr)
+		print(f'[lsblk-diag] lsblk    : {shutil.which("lsblk")}', file=sys.stderr)
+		if err.worker_log:
+			print(f'[lsblk-diag] stderr   : {err.worker_log.decode()[-500:]}', file=sys.stderr)
 
 		if dev_path:
 			raise DiskError(f'Failed to read disk "{dev_path}" with lsblk')
