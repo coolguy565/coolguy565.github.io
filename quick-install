@@ -69,7 +69,8 @@ heal parted python-pyparted
 heal pydantic python-pydantic
 heal pydantic_core python-pydantic-core
 heal annotated_types python-annotated-types
-heal typing_extensions python-typing-extensions
+heal typing_extensions python-typing_extensions
+heal typing_inspection python-typing-inspection
 heal cryptography python-cryptography
 
 # final check: archinstall itself must import cleanly before we launch
