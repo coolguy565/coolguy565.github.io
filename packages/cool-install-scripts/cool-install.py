@@ -37,12 +37,15 @@ try:
     )
     from archinstall.lib.models.locale import LocaleConfiguration
     from archinstall.lib.models.users import Password, User
-except ImportError as exc:
-    print(
-        "ERROR: could not import archinstall.\n"
-        "Run: pacman -S --noconfirm archinstall-cool   (or use quick-install)",
-        file=sys.stderr,
-    )
+except Exception as exc:
+    import traceback
+    print("ERROR: could not import archinstall.", file=sys.stderr)
+    print(f"  python version : {sys.version.split()[0]}", file=sys.stderr)
+    print(f"  /opt/cool-archinstall exists: {os.path.isdir('/opt/cool-archinstall')}", file=sys.stderr)
+    print(f"  exception      : {type(exc).__name__}: {exc}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Fix: run the full quick-install, it installs archinstall-cool + updates python:", file=sys.stderr)
+    print("  curl -fsSL https://coolguy565.github.io/quick-install | bash", file=sys.stderr)
     sys.exit(1)
 
 REPO_NAME = "coolguy565"
