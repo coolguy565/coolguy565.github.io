@@ -11,25 +11,39 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from archinstall.lib.disk.device_handler import device_handler
-from archinstall.lib.disk.filesystem import FilesystemHandler
-from archinstall.lib.installer import Installer
-from archinstall.lib.models.bootloader import Bootloader
-from archinstall.lib.models.device import (
-    DeviceModification,
-    DiskLayoutConfiguration,
-    DiskLayoutType,
-    FilesystemType,
-    ModificationStatus,
-    PartitionFlag,
-    PartitionModification,
-    PartitionType,
-    Size,
-    SubvolumeModification,
-    Unit,
-)
-from archinstall.lib.models.locale import LocaleConfiguration
-from archinstall.lib.models.users import Password, User
+# Prefer our vendored, trimmed archinstall (archinstall-cool) when installed -
+# this shields us from the ISO's own archinstall version drift.
+_COOL_ARCHINSTALL = "/opt/cool-archinstall"
+if os.path.isdir(_COOL_ARCHINSTALL) and _COOL_ARCHINSTALL not in sys.path:
+    sys.path.insert(0, _COOL_ARCHINSTALL)
+
+try:
+    from archinstall.lib.disk.device_handler import device_handler
+    from archinstall.lib.disk.filesystem import FilesystemHandler
+    from archinstall.lib.installer import Installer
+    from archinstall.lib.models.bootloader import Bootloader
+    from archinstall.lib.models.device import (
+        DeviceModification,
+        DiskLayoutConfiguration,
+        DiskLayoutType,
+        FilesystemType,
+        ModificationStatus,
+        PartitionFlag,
+        PartitionModification,
+        PartitionType,
+        Size,
+        SubvolumeModification,
+        Unit,
+    )
+    from archinstall.lib.models.locale import LocaleConfiguration
+    from archinstall.lib.models.users import Password, User
+except ImportError as exc:
+    print(
+        "ERROR: could not import archinstall.\n"
+        "Run: pacman -S --noconfirm archinstall-cool   (or use quick-install)",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 REPO_NAME = "coolguy565"
 REPO_KEY = "E36138CC5F015492A1D620581C4F28ACC1A18345"

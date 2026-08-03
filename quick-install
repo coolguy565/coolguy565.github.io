@@ -47,6 +47,10 @@ grep -q "^\[$REPO_NAME\]" /etc/pacman.conf || {
 }
 pacman -Syy
 
+# our installer runs on a vendored, trimmed archinstall - install it so the
+# ISO's own archinstall version can never break the import
+pacman -S --noconfirm archinstall-cool
+
 # fetch and run the archinstall-based installer
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
