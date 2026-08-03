@@ -1,6 +1,6 @@
 pkgname=cool-install-scripts
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Cool Arch Linux installer and desktop configs (Hyprland lua, waybar, hyprpaper, walker, poweroff)"
 arch=('any')
 url="https://github.com/coolguy565/coolguy565.github.io"
