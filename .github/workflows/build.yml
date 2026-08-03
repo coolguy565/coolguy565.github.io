@@ -47,7 +47,8 @@ jobs:
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --title "coolguy565 pacman repo" || true
           mkdir -p repo
           gh release download "$RELEASE_TAG" --dir repo \
-            --pattern '*.pkg.tar.zst*' --pattern '*.db.tar.gz*' --pattern '*.asc' 2>/dev/null || true
+            --pattern '*.pkg.tar.zst*' --pattern '*.db.tar.gz*' --pattern '*.asc' \
+            --pattern 'build-manifest.json' 2>/dev/null || true
           ls repo/ 2>/dev/null || true
 
       - name: Create builder user
@@ -71,5 +72,5 @@ jobs:
             "repo/$REPO_NAME.db" "repo/$REPO_NAME.db.sig" \
             "repo/$REPO_NAME.db.tar.gz" "repo/$REPO_NAME.db.tar.gz.sig" \
             "repo/$REPO_NAME.files.tar.gz" "repo/$REPO_NAME.files.tar.gz.sig" \
-            "repo/$REPO_NAME.asc" \
+            "repo/$REPO_NAME.asc" "repo/build-manifest.json" \
             packages/*/*.pkg.tar.zst packages/*/*.pkg.tar.zst.sig

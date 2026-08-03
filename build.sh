@@ -43,20 +43,67 @@ printf 'GPGKEY="%s"\nPACKAGER="%s <%s>"\n' "$GPGKEY" "$PACKAGER_NAME" "$PACKAGER
 mkdir -p "$OUT_DIR"
 shopt -s nullglob
 
+# ---- incremental build: skip packages whose source is unchanged since the
+# last successful build (fingerprint stored in OUT_DIR/build-manifest.json) ----
+MANIFEST_FILE="$OUT_DIR/build-manifest.json"
+OLD_FP_FILE="/tmp/old_fp.tsv"
+FP_FILE="/tmp/fp.tsv"
+
+fingerprint() {
+  find "$1" -type f \
+    -not -path '*/src/*' \
+    -not -path '*/pkg/*' \
+    -not -path '*/__pycache__/*' \
+    -not -name '*.pkg.tar.zst' \
+    -not -name '*.pkg.tar.zst.sig' \
+    -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
+}
+
+python3 - "$MANIFEST_FILE" > "$OLD_FP_FILE" <<'PY' || true
+import json, sys, os
+if os.path.exists(sys.argv[1]):
+    for k, v in json.load(open(sys.argv[1])).items():
+        print(f"{k}\t{v}")
+PY
+: > "$FP_FILE"
+
 for pkgdir in packages/*/; do
   [[ -f "$pkgdir/PKGBUILD" ]] || continue
+  name="${pkgdir%/}"; name="${name##*/}"
   if [[ -f "$pkgdir/.heavy" ]]; then
-    echo "::group::Skipping ${pkgdir%/} (heavy - built locally in firejail)"
+    echo "::group::Skipping ${name} (heavy - built locally in firejail)"
     echo "::endgroup::"
     continue
   fi
-  echo "::group::Building ${pkgdir%/}"
+  fp=$(fingerprint "$pkgdir")
+  oldfp=$(awk -F'\t' -v n="$name" '$1==n{print $2}' "$OLD_FP_FILE")
+  if [[ -n "$oldfp" && "$oldfp" == "$fp" ]] \
+     && compgen -G "$OUT_DIR/${name}-*.pkg.tar.zst" >/dev/null; then
+    echo "::group::Skipping ${name} (unchanged since last successful build)"
+    echo "::endgroup::"
+    echo -e "$name\t$fp" >> "$FP_FILE"
+    continue
+  fi
+  echo "::group::Building ${name}"
   mkg_args=(-s --noconfirm)
   [[ -f "$pkgdir/.skippgpcheck" ]] && mkg_args+=(--skippgpcheck)
   ( cd "$pkgdir" && makepkg "${mkg_args[@]}" --sign ) \
-    || echo "::warning::build failed: ${pkgdir%/}"
+    || echo "::warning::build failed: ${name}"
   echo "::endgroup::"
+  echo -e "$name\t$fp" >> "$FP_FILE"
 done
+
+python3 - "$MANIFEST_FILE" "$FP_FILE" <<'PY' || true
+import json, sys
+rows = {}
+for line in open(sys.argv[2]):
+    line = line.rstrip("\n")
+    if not line:
+        continue
+    n, f = line.split("\t")
+    rows[n] = f
+json.dump(rows, open(sys.argv[1], "w"), indent=2)
+PY
 
 echo "::group::Creating repository database"
 cd "$OUT_DIR"
