@@ -1,0 +1,19 @@
+:root {
+    --accent: #cc00ff;
+}
+
+body {
+    background-color: #313131;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    font-weight: normal;
+    font-family: "Press Start 2P", sans-serif;
+}
